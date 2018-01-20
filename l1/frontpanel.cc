@@ -35,7 +35,7 @@ CDLEDTimer. See frontpanel.hh for full descr. of the classes.
 
 /************************ LED DEFINTION SECTION *****************************/
 
-//Constructor takes in byte theLedNumber and sets the private variable myLedBit to theLedNumber
+//Constructor takes in byte theLedNumber and sets the private variable myLedBit to theLedNumber.
 //myLedBit is a bitmask containing a '1' in the bit position for this led in the led register.
 LED::LED(byte theLedNumber) : myLedBit(theLedNumber) {
 }
@@ -43,7 +43,7 @@ LED::LED(byte theLedNumber) : myLedBit(theLedNumber) {
 //Initialize static shadow of the content of the led register. Must be used to manipulate one led without reseting the others.
 byte LED::writeOutRegisterShadow = 0x38;
 
-//Turn the LED on.
+//Turns the LED on.
 void LED::on() {
   byte ledBit = 4 << myLedBit; //myLedBits are: 1 - Network, 2 - Status, 3 - CD. Convert to their corresponding bits in the register.
   writeOutRegisterShadow ^= ledBit; //LEDs are off, meaning the bit is set to 1. Bitwise XOR with ledBit to turn on only that LED.
@@ -51,7 +51,7 @@ void LED::on() {
   iAmOn = true;
 }
 
-//Turn the LED off.
+//Turns the LED off.
 void LED::off() {
   byte ledBit = 4 << myLedBit;
   writeOutRegisterShadow ^= ledBit; //LEDs are on, meaning the bit is set to 0. Bitwise XOR with ledBit to turn off only that LED.
