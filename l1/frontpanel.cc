@@ -66,20 +66,97 @@ void LED::toggle() {
     on();
   }
 }
-/****************** FrontPanel DEFINITION SECTION ***************************/
 
-//----------------------------------------------------------------------------
-//
-type
-Class::method()
-{
+/****************** NetworkLEDTimer DEFINTION SECTION ***********************/
+
+NetworkLEDTimer::NetworkLEDTimer(Duration blinkTime) : myBlinkTime(blinkTime) {
 }
 
-//----------------------------------------------------------------------------
-//
-type
-Class::method()
-{
+void NetworkLEDTimer::start() {
+  this->timeOutAfter(myBlinkTime); //Inherited from class Timed, starts timer
+}
+
+void NetworkLEDTimer::timeOut() {
+  cout << "NetworkLEDTimer timed out." << endl; //Placeholder // notify FrontPanel that this timer has expired.
+}
+
+/******************** CDLEDTimer DEFINTION SECTION *************************/
+
+CDLEDTimer::CDLEDTimer(Duration blinkPeriod) {
+  //TODO:
+  //Call superclass to set blinkPeriod
+  //Call superclass to start periodic timer
+}
+
+void CDLEDTimer::timerNotify() {
+    cout << "CDLEDTimer timed out." << endl; //Placeholder // notify FrontPanel that this timer has expired.
+}
+
+/****************** StatusLEDTimer DEFINTION SECTION ***********************/
+
+StatusLEDTimer::StatusLEDTimer(Duration blinkPeriod) {
+  //TODO:
+  //Call superclass to set blinkPeriod
+  //Call superclass to start periodic timer
+}
+
+void StatusLEDTimer::timerNotify() {
+  cout << "StatusLEDTimer timed out." << endl; //Placeholder // notify FrontPanel that this timer has expired.
+}
+
+/****************** FrontPanel DEFINITION SECTION ***************************/
+
+// Constructor: initializes the semaphore the leds and the event flags.
+FrontPanel::FrontPanel() :
+  myNetworkLED(networkLedId),
+  myCDLED(cdLedId),
+  myStatusLED(statusLedId),
+  mySemaphore(Semaphore::createQueueSemaphore("Hello", 0)),
+  Job() {
+  Job::schedule(this);
+}
+
+// Returns the instance of FrontPanel, used for accessing the FrontPanel
+FrontPanel& FrontPanel::instance() {
+  //TODO
+}
+
+// Turn Network led on and start network led timer
+void FrontPanel::packetReceived() {
+  myNetworkLED.on();
+  NetworkLEDTimer.start();
+}
+
+// Called from the timers to notify that a timer has expired.
+// Sets an event flag and signals the semaphore.
+void FrontPanel::notifyLedEvent(uword theLedId) {
+  switch(theLedId) {
+    case networkLedId:
+      netLedEvent = true;
+      break;
+    case cdLedId:
+      cdLedEvent = true;
+      break;
+    case statusLedId:
+      statusLedEvent = true;
+      break;
+  }
+  mySemaphore->signal();
+}
+
+// Main thread loop of FrontPanel. Initializes the led timers and goes into
+// a perptual loop where it awaits the semaphore. When it wakes it checks
+// the event flags to see which leds to manipulate and manipulates them.
+void FrontPanel::doit() {
+  //Initiate all timers, only CD and Status timer are actually started.
+  myNetworkLEDTimer = new NetworkLEDTimer(Clock::seconds*5);
+  myCDLEDTimer = new CDLEDTimer(Clock::seconds*5);
+  myStatusLEDTimer = new StatusLEDTimer(Clock::seconds*5);
+
+  while(true) {
+    
+  }
+
 }
 
 /****************** END OF FILE FrontPanel.cc ********************************/
