@@ -83,9 +83,8 @@ void NetworkLEDTimer::timeOut() {
 /******************** CDLEDTimer DEFINTION SECTION *************************/
 
 CDLEDTimer::CDLEDTimer(Duration blinkPeriod) {
-  //TODO:
-  //Call superclass to set blinkPeriod
-  //Call superclass to start periodic timer
+  this->timerInterval(blinkPeriod); //Call superclass to set blinkPeriod
+  this->startPeriodicTimer();//Call superclass to start periodic timer
 }
 
 void CDLEDTimer::timerNotify() {
@@ -95,9 +94,8 @@ void CDLEDTimer::timerNotify() {
 /****************** StatusLEDTimer DEFINTION SECTION ***********************/
 
 StatusLEDTimer::StatusLEDTimer(Duration blinkPeriod) {
-  //TODO:
-  //Call superclass to set blinkPeriod
-  //Call superclass to start periodic timer
+  this->timerInterval(blinkPeriod); //Call superclass to set blinkPeriod
+  this->startPeriodicTimer();//Call superclass to start periodic timer
 }
 
 void StatusLEDTimer::timerNotify() {
@@ -118,7 +116,8 @@ FrontPanel::FrontPanel() :
 
 // Returns the instance of FrontPanel, used for accessing the FrontPanel
 FrontPanel& FrontPanel::instance() {
-  //TODO
+  static FrontPanel myInstance;
+  return myInstance;
 }
 
 // Turn Network led on and start network led timer
@@ -154,7 +153,19 @@ void FrontPanel::doit() {
   myStatusLEDTimer = new StatusLEDTimer(Clock::seconds*5);
 
   while(true) {
-    
+    mySemaphore->wait();
+    if (netLedEvent) {
+      myNetworkLED.off();
+      netLedEvent = false;
+    }
+    if (cdLedEvent) {
+      myCDLED.toggle();
+      cdLedEvent = false;
+    }
+    if (statusLedEvent) {
+      myStatusLED.toggle();
+      statusLedEvent = false;
+    }
   }
 
 }
