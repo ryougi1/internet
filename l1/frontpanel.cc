@@ -47,7 +47,7 @@ byte LED::writeOutRegisterShadow = 0x38;
 void LED::on() {
   byte ledBit = 4 << myLedBit; //myLedBits are: 1 - Network, 2 - Status, 3 - CD. Convert to their corresponding bits in the register.
   writeOutRegisterShadow ^= ledBit; //LEDs are off, meaning the bit is set to 1. Bitwise XOR with ledBit to turn on only that LED.
-  *(VOLATEILE byte*)0x80000000 = writeOutRegisterShadow; //Write into the correct address
+  *(VOLATILE byte*)0x80000000 = writeOutRegisterShadow; //Write into the correct address
   iAmOn = true;
 }
 
@@ -55,7 +55,7 @@ void LED::on() {
 void LED::off() {
   byte ledBit = 4 << myLedBit;
   writeOutRegisterShadow ^= ledBit; //LEDs are on, meaning the bit is set to 0. Bitwise XOR with ledBit to turn off only that LED.
-  *(VOLATEILE byte*)0x80000000 = writeOutRegisterShadow;
+  *(VOLATILE byte*)0x80000000 = writeOutRegisterShadow;
   iAmOn = false;
 }
 
@@ -78,17 +78,19 @@ void NetworkLEDTimer::start() {
 
 void NetworkLEDTimer::timeOut() {
   cout << "NetworkLEDTimer timed out." << endl; //Placeholder // notify FrontPanel that this timer has expired.
+  FrontPanel::instance().notifyLedEvent(FrontPanel::networkLedId);
 }
 
 /******************** CDLEDTimer DEFINTION SECTION *************************/
 
 CDLEDTimer::CDLEDTimer(Duration blinkPeriod) {
   this->timerInterval(blinkPeriod); //Call superclass to set blinkPeriod
-  this->startPeriodicTimer();//Call superclass to start periodic timer
+  this->startPeriodicTimer(); //Call superclass to start periodic timer
 }
 
 void CDLEDTimer::timerNotify() {
     cout << "CDLEDTimer timed out." << endl; //Placeholder // notify FrontPanel that this timer has expired.
+    FrontPanel::instance().notifyLedEvent(FrontPanel::cdLedId);
 }
 
 /****************** StatusLEDTimer DEFINTION SECTION ***********************/
@@ -100,17 +102,18 @@ StatusLEDTimer::StatusLEDTimer(Duration blinkPeriod) {
 
 void StatusLEDTimer::timerNotify() {
   cout << "StatusLEDTimer timed out." << endl; //Placeholder // notify FrontPanel that this timer has expired.
+  FrontPanel::instance().notifyLedEvent(FrontPanel::statusLedId);
 }
 
 /****************** FrontPanel DEFINITION SECTION ***************************/
 
 // Constructor: initializes the semaphore the leds and the event flags.
 FrontPanel::FrontPanel() :
+  Job(),
+  mySemaphore(Semaphore::createQueueSemaphore("FP", 0)),
   myNetworkLED(networkLedId),
   myCDLED(cdLedId),
-  myStatusLED(statusLedId),
-  mySemaphore(Semaphore::createQueueSemaphore("Hello", 0)),
-  Job() {
+  myStatusLED(statusLedId) {
   Job::schedule(this);
 }
 
@@ -122,8 +125,9 @@ FrontPanel& FrontPanel::instance() {
 
 // Turn Network led on and start network led timer
 void FrontPanel::packetReceived() {
+  cout << "Received a packet" << endl;
   myNetworkLED.on();
-  NetworkLEDTimer.start();
+  myNetworkLEDTimer->start();
 }
 
 // Called from the timers to notify that a timer has expired.
@@ -149,8 +153,8 @@ void FrontPanel::notifyLedEvent(uword theLedId) {
 void FrontPanel::doit() {
   //Initiate all timers, only CD and Status timer are actually started.
   myNetworkLEDTimer = new NetworkLEDTimer(Clock::seconds*5);
-  myCDLEDTimer = new CDLEDTimer(Clock::seconds*5);
-  myStatusLEDTimer = new StatusLEDTimer(Clock::seconds*5);
+  myCDLEDTimer = new CDLEDTimer(Clock::seconds*1);
+  myStatusLEDTimer = new StatusLEDTimer(Clock::seconds*3);
 
   while(true) {
     mySemaphore->wait();
