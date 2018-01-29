@@ -89,8 +89,8 @@ CDLEDTimer::CDLEDTimer(Duration blinkPeriod) {
 }
 
 void CDLEDTimer::timerNotify() {
-    cout << "CDLEDTimer timed out." << endl; //Placeholder // notify FrontPanel that this timer has expired.
-    cout << "Core " << ax_coreleft_total() << endl;
+    // cout << "CDLEDTimer timed out." << endl; //Placeholder // notify FrontPanel that this timer has expired.
+    // cout << "Core " << ax_coreleft_total() << endl;
     FrontPanel::instance().notifyLedEvent(FrontPanel::cdLedId);
 }
 
@@ -102,8 +102,8 @@ StatusLEDTimer::StatusLEDTimer(Duration blinkPeriod) {
 }
 
 void StatusLEDTimer::timerNotify() {
-  cout << "StatusLEDTimer timed out." << endl; //Placeholder // notify FrontPanel that this timer has expired.
-  cout << "Core " << ax_coreleft_total() << endl;
+  // cout << "StatusLEDTimer timed out." << endl; //Placeholder // notify FrontPanel that this timer has expired.
+  // cout << "Core " << ax_coreleft_total() << endl;
   FrontPanel::instance().notifyLedEvent(FrontPanel::statusLedId);
 }
 
@@ -154,7 +154,7 @@ void FrontPanel::notifyLedEvent(uword theLedId) {
 // the event flags to see which leds to manipulate and manipulates them.
 void FrontPanel::doit() {
   //Initiate all timers, only CD and Status timer are actually started.
-  myNetworkLEDTimer = new NetworkLEDTimer(Clock::seconds*5);
+  myNetworkLEDTimer = new NetworkLEDTimer(Clock::seconds*1);
   myCDLEDTimer = new CDLEDTimer(Clock::seconds*1);
   myStatusLEDTimer = new StatusLEDTimer(Clock::seconds*3);
 

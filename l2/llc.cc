@@ -33,7 +33,7 @@ extern "C"
 //
 LLCInPacket::LLCInPacket(byte*           theData,
                          udword          theLength,
-						 InPacket*       theFrame,
+						             InPacket*       theFrame,
                          EthernetAddress theDestinationAddress,
                          EthernetAddress theSourceAddress,
                          uword           theTypeLen):
@@ -49,11 +49,11 @@ myTypeLen(theTypeLen)
 void
 LLCInPacket::decode()
 {
-  trace << "to " << myDestinationAddress << " from " << mySourceAddress 
+  trace << "to " << myDestinationAddress << " from " << mySourceAddress
    << " typeLen " << myTypeLen << endl;
   if (myDestinationAddress == Ethernet::instance().myAddress())
   {
-	trace << "length " << myLength << " typelen 0x" << hex << myTypeLen 
+	trace << "length " << myLength << " typelen 0x" << hex << myTypeLen
 		  << dec << " (" << myTypeLen << ")" << endl;
     if ((myTypeLen == 0x800) &&
 		(myLength > 28) &&
@@ -105,4 +105,3 @@ LLCInPacket::headerOffset()
 }
 
 /****************** END OF FILE Ethernet.cc *************************************/
-

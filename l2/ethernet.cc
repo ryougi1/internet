@@ -52,7 +52,7 @@ Ethernet::Ethernet()
   processingPacket = FALSE;
 
   // STOFF: Set myEthernetAddress to your "personnummer" here!
-  myEthernetAddress = new EthernetAddress(0x00, 0x95, 0x09, 0x03, 18, 95);
+  myEthernetAddress = new EthernetAddress(0x00, 0x95, 0x09, 0x03, 0x18, 0x95);
   // TODO: Maybe needs an IP too?
 
   this->initMemory();
@@ -275,7 +275,7 @@ Ethernet::getReceiveBuffer()
     if ((pagePointer->endPointer + endPtrOffset) > (rxStartAddress + (nextRxPage * 256))) {
       // one chunk of data
       data1   =  pagePointer->data; // Pointer to the first byte in a received packet (byte*)
-      length1 = pagePointer->endPointer - (udword)(data1); // Length of first part of a packet (udword = 4B)
+      length1 = pagePointer->endPointer - (uword)(*data1); // Length of first part of a packet (udword = 4B)
       data2   = NULL;
       length2 = 0;
     }
@@ -287,7 +287,7 @@ Ethernet::getReceiveBuffer()
       // length2 = /* ? */ ;
     // }
     cout << "Received a ping" << endl;
-    cout << length1 << endl;
+    // cout << length1 << endl;
     cout << "Core " << ax_coreleft_total() << endl;
     return true;
   }
@@ -362,14 +362,15 @@ Ethernet::decodeReceivedPacket()
 {
   trace << "Found packet at:" << hex << (udword)data1 << dec << endl;
   // STOFF: Blink packet LED
-  //FrontPanel::instance().packetReceived();
+  FrontPanel::instance().packetReceived();
   // STOFF: Create an EternetInPacket, two cases:
-  //EthernetInPacket* ethernetInPacket;
+  EthernetInPacket* ethernetInPacket;
 
   if (data2 == NULL) //No wrap around
   {
     // STUFF: Create an EternetInPacket
-    //ethernetInPacket = new EthernetInPacket(data1, length1, ); //TODO theFrame???
+    ethernetInPacket = new EthernetInPacket(data1, length1, 0); //Lowest layer hence 0 - see FAQ
+    cout << "Created an EthernetInPacket" << endl;
   }
   else
   {
@@ -381,11 +382,12 @@ Ethernet::decodeReceivedPacket()
     memcpy(wrappedPacket, data1, length1);
     memcpy((wrappedPacket + length1), data2, length2);
     // STUFF: Create an EternetInPacket
-    //ethernetInPacket = new EthernetInPacket(wrappedPacket, length1 + length2, ) //TODO theFrame???
+    //ethernetInPacket = new EthernetInPacket(wrappedPacket, length1 + length2, 0) //TODO theFrame???
   }
   // STOFF: Create and schedule an EthernetJob to decode the EthernetInPacket
-  //EthernetJob ethernetJob = new EthernetJob(ethernetInPacket);
-  //Job::schedule(ethernetJob);
+  EthernetJob* ethernetJob = new EthernetJob(ethernetInPacket);
+  Job::schedule(ethernetJob);
+  cout << "Scheduled an ethernetJob" << endl;
 }
 
 //----------------------------------------------------------------------------
@@ -504,8 +506,40 @@ Ethernet::resetTransmitter()
 }
 
 // STUFF: Add EthernetJob implementation
+//----------------------------------------------------------------------------
+EthernetJob::EthernetJob(EthernetInPacket* thePacket) : myPacket(thePacket) {
+}
+
+//TODO: Implement virtual destructor, somehow.
+
+void EthernetJob::doit() {
+  myPacket.decode(); //decode myPacket
+}
+//
 
 // STUFF: Add EthernetInPacket implementation
+//-----------------------------------------------------------------------------
+EthernetInPacket::EthernetInPacket(byte* theData, udword theLength, InPacket* theFrame)
+    : InPacket()
+}
+
+void EthernetInPacket::decode() {
+  // Decode this ethernet packet.
+  EthernetHeader* ethHeader = (EthernetHeader*)data;
+  myDestinationAddress = ethHeader->destinationAddress;
+  mySourceAddress = ethHeader->.sourceAddress;
+  myTypeLen = ethHeader->typeLen;
+  // Extract ethernet information and pass it up to LLC. This is done by
+  // creating a LLCInPacket and decode it. Call returnRXBuffer when done
+  LLCInPacket llcInPack = new
+}
+
+void EthernetInPacket::answer(byte* theData, udword theLength){
+  // Upper layers may choose to send an answer to the sender of this packet
+  // prepend the appropriate ethernet information and send the packet
+}
+//
+
 
 //----------------------------------------------------------------------------
 //
