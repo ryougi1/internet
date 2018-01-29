@@ -1,9 +1,9 @@
 /*!***************************************************************************
 *!
 *! FILE NAME  : Ethernet.hh
-*! 
+*!
 *! DESCRIPTION: Handles the Ethernet layer
-*! 
+*!
 *!***************************************************************************/
 
 #ifndef Ethernet_hh
@@ -25,9 +25,9 @@ ethernet_interrupt();
 *%
 *% CLASS NAME   : EthernetAddress
 *%
-*% BASE CLASSES : 
+*% BASE CLASSES :
 *%
-*% CLASS TYPE   : 
+*% CLASS TYPE   :
 *%
 *% DESCRIPTION  : Represents an Ethernet address.
 *%
@@ -41,7 +41,7 @@ class EthernetAddress
   // Constructor: do nothing
   EthernetAddress(byte a0, byte a1, byte a2, byte a3, byte a4, byte a5);
   // Constructor: set myAddress
-  
+
   void writeTo(byte* theData);
   // Copy myAddress to theData
 
@@ -50,11 +50,11 @@ class EthernetAddress
 
   bool operator == (const EthernetAddress& theAddress) const;
   // Check myAddress against theAddress.myAddress
-  
+
   friend class ostream&
   operator <<(ostream& theStream, const EthernetAddress& theAddress);
   // print this Address to an ostream
-  
+
  private:
   byte myAddress[length];
 };
@@ -83,7 +83,7 @@ class Ethernet
   bool getReceiveBuffer();
   // returns 'true' if a packet was found in the receive buffer.
   // This function is called in interrupt context.
-  
+
   void decodeReceivedPacket();
   // Handles a packet found in 'getReceiveBuffer' but we have now left
   // interrupt context.
@@ -94,7 +94,7 @@ class Ethernet
   // Transmitt an ethernet packet
   void resetTransmitter();
   // Resets the ethernet transmitter if something is seriously wrong
-  
+
   enum { endPtrOffset   = 0x40000000 };
 
   enum { txStartAddress = 0x40000000,
@@ -105,7 +105,7 @@ class Ethernet
          rxBufferOffset = 0x8000,
          rxBufferSize   = 0x8000,
          rxBufferPages  = 128  };
-  
+
   enum { ethernetHeaderLength = 14,
          // Length of the ethernet packet
          commandLength        = 4,
@@ -126,13 +126,13 @@ class Ethernet
 
   EthernetAddress* myEthernetAddress;
   // The ethernet address of this server
-  
+
   byte  nextRxPage;
   // Next received buffer to be read. Always runs between 0..rxBufferPages-1
   byte  nextTxPage;
   // Next free position in transmitt buffer. Always runs between
   // 0..txBufferPages-1
-  
+
   byte*  data1;
   // Pointer to the first byte in a received packet
   udword length1;
@@ -143,7 +143,7 @@ class Ethernet
   // Length of the wrapped portion of a received packet
   // data1, length1, data2 and length2 are set by getReceiveBuffer and used
   // by decodeReceivedPacket
-  
+
   byte*  wrappedPacket;
   // if data2 != NULL the two portions of the packet are copied here by
   // decodeReceivedPacket.
@@ -153,9 +153,9 @@ class Ethernet
 *%
 *% CLASS NAME   : BufferPage
 *%
-*% BASE CLASSES : 
+*% BASE CLASSES :
 *%
-*% CLASS TYPE   : 
+*% CLASS TYPE   :
 *%
 *% DESCRIPTION  : Description of one page in receive and transmitt buffer.
 *%
@@ -164,10 +164,10 @@ class Ethernet
 *%***************************************************************************/
 class BufferPage
 {
- public:  
+ public:
   BufferPage() {}
   // Constructor: not used
-  
+
   byte  statusCommand;
   // rx: State of this page, tx: transmitt command
   byte  notUsed;
@@ -184,7 +184,7 @@ class BufferPage
 *%
 *% BASE CLASSES : Job
 *%
-*% CLASS TYPE   : 
+*% CLASS TYPE   :
 *%
 *% DESCRIPTION  : Starts the thread that decodes the packet.
 *%
@@ -196,14 +196,14 @@ class EthernetInPacket;
 class EthernetJob : public Job
 {
  public:
-   EthernetJob(EthernetInPacket* thePacket);  
+   EthernetJob(EthernetInPacket* thePacket);
   // Constructor: Initiate myPacket
-  
+
  private:
   virtual ~EthernetJob() {}
   void doit();
   // decode myPacket
-  
+
   EthernetInPacket* myPacket;
 };
 
@@ -213,7 +213,7 @@ class EthernetJob : public Job
 *%
 *% BASE CLASSES : InPacket
 *%
-*% CLASS TYPE   : 
+*% CLASS TYPE   :
 *%
 *% DESCRIPTION  : Decode a EthernetPacket.
 *%
@@ -225,7 +225,7 @@ class EthernetInPacket : public InPacket
  public:
    EthernetInPacket(byte* theData,
 	   udword theLength,
-	   InPacket* theFrame);  
+	   InPacket* theFrame);
   // Constructor: Initiate base class InPacket
   void decode();
   // Decode this ethernet packet.
@@ -235,7 +235,7 @@ class EthernetInPacket : public InPacket
   // Upper layers may choose to send an answer to the sender of this packet
   // prepend the appropriate ethernet information and send the packet
   uword headerOffset();
-  // Return the length of the ethernet header, 
+  // Return the length of the ethernet header,
   // see Ethernet::ethernetHeaderLength
 
  private:
@@ -248,9 +248,9 @@ class EthernetInPacket : public InPacket
 *%
 *% CLASS NAME   : EthernetHeader
 *%
-*% BASE CLASSES : 
+*% BASE CLASSES :
 *%
-*% CLASS TYPE   : 
+*% CLASS TYPE   :
 *%
 *% DESCRIPTION  : Contains the actual fields of the EthernetHeader.
 *%                Used to handle the ethernet headers
@@ -261,7 +261,7 @@ class EthernetInPacket : public InPacket
 class EthernetHeader
 {
  public:
-   EthernetHeader();  
+   EthernetHeader();
 
    EthernetAddress destinationAddress;
    EthernetAddress sourceAddress;
@@ -271,4 +271,3 @@ class EthernetHeader
 
 #endif
 /****************** END OF FILE Ethernet.hh *********************************/
-

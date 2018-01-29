@@ -52,7 +52,7 @@ Ethernet::Ethernet()
   processingPacket = FALSE;
 
   // STOFF: Set myEthernetAddress to your "personnummer" here!
-  myEthernetAddress = new EthernetAddress(00, 95, 09, 03, 18, 95); //TODO: NEEDS FIX
+  myEthernetAddress = new EthernetAddress(0x00, 0x95, 0x09, 0x03, 18, 95);
   // TODO: Maybe needs an IP too?
 
   this->initMemory();
@@ -92,14 +92,14 @@ Ethernet::initMemory()
 
   //For receive buffer: taken from resetTransmitter
   for (page = 0; page < rxBufferPages; page++) { //Page only used as counter for the for loop
-    aPointer->statusCommand = 0; //Set the status byte to 0
+    aPointer->statusCommand = 0x00; //Set the status byte to 0
     aPointer++; //This increments the pointer (memory address)
   }
 
   //For transmitt buffer:
   aPointer = (BufferPage *)txStartAddress;
   for (page = 0; page < txBufferPages; page++) {
-    aPointer->statusCommand = 0;
+    aPointer->statusCommand = 0x00;
     aPointer++;
   }
 
@@ -271,16 +271,11 @@ Ethernet::getReceiveBuffer()
       (pagePointer->statusCommand == 0x03))   // Packet available and buffer full
   {
     // use endptr to find out where the packet ends, and if it is wrapped.
-    bool isWrapped;
-    if ((pagePointer->endPointer + endPtrOffset) < pagePointer) { //If value of endPointer is less than address of our pagePointer, it wrapped around
-      isWrapped = true;
-    } else {
-      isWrapped = false;
-    }
-    if (!isWrapped) {
+    //If address that endPointer points to is less than address of current packet, it wrapped around
+    if ((pagePointer->endPointer + endPtrOffset) > (rxStartAddress + (nextRxPage * 256))) {
       // one chunk of data
-      data1   =  pagePointer->data;
-      length1 = pagePointer->endPointer - *data1;
+      data1   =  pagePointer->data; // Pointer to the first byte in a received packet (byte*)
+      length1 = pagePointer->endPointer - (udword)(data1); // Length of first part of a packet (udword = 4B)
       data2   = NULL;
       length2 = 0;
     }
@@ -292,6 +287,7 @@ Ethernet::getReceiveBuffer()
       // length2 = /* ? */ ;
     // }
     cout << "Received a ping" << endl;
+    cout << length1 << endl;
     cout << "Core " << ax_coreleft_total() << endl;
     return true;
   }
@@ -365,11 +361,15 @@ void
 Ethernet::decodeReceivedPacket()
 {
   trace << "Found packet at:" << hex << (udword)data1 << dec << endl;
-  // STUFF: Blink packet LED
-  // STUFF: Create an EternetInPacket, two cases:
-  if (data2 == NULL)
+  // STOFF: Blink packet LED
+  //FrontPanel::instance().packetReceived();
+  // STOFF: Create an EternetInPacket, two cases:
+  //EthernetInPacket* ethernetInPacket;
+
+  if (data2 == NULL) //No wrap around
   {
     // STUFF: Create an EternetInPacket
+    //ethernetInPacket = new EthernetInPacket(data1, length1, ); //TODO theFrame???
   }
   else
   {
@@ -381,8 +381,11 @@ Ethernet::decodeReceivedPacket()
     memcpy(wrappedPacket, data1, length1);
     memcpy((wrappedPacket + length1), data2, length2);
     // STUFF: Create an EternetInPacket
+    //ethernetInPacket = new EthernetInPacket(wrappedPacket, length1 + length2, ) //TODO theFrame???
   }
-  // STUFF: Create and schedule an EthernetJob to decode the EthernetInPacket
+  // STOFF: Create and schedule an EthernetJob to decode the EthernetInPacket
+  //EthernetJob ethernetJob = new EthernetJob(ethernetInPacket);
+  //Job::schedule(ethernetJob);
 }
 
 //----------------------------------------------------------------------------
