@@ -382,7 +382,7 @@ Ethernet::decodeReceivedPacket()
     memcpy(wrappedPacket, data1, length1);
     memcpy((wrappedPacket + length1), data2, length2);
     // STUFF: Create an EternetInPacket
-    //ethernetInPacket = new EthernetInPacket(wrappedPacket, length1 + length2, 0) //TODO theFrame???
+    //ethernetInPacket = new EthernetInPacket(wrappedPacket, length1 + length2, 0)
   }
   // STOFF: Create and schedule an EthernetJob to decode the EthernetInPacket
   EthernetJob* ethernetJob = new EthernetJob(ethernetInPacket);
@@ -520,23 +520,37 @@ void EthernetJob::doit() {
 // STUFF: Add EthernetInPacket implementation
 //-----------------------------------------------------------------------------
 EthernetInPacket::EthernetInPacket(byte* theData, udword theLength, InPacket* theFrame)
-    : InPacket()
+    : InPacket(theData, theLength, theFrame) {
 }
 
 void EthernetInPacket::decode() {
   // Decode this ethernet packet.
-  EthernetHeader* ethHeader = (EthernetHeader*)data;
+  //The class EthernetHeader is declared to contain exactly the same data fields
+  //as those present in an ethernet frame header.
+  EthernetHeader* ethHeader = (EthernetHeader*)myData; //Pass the entire ethernet frame to EthernetHeader, see descr. section: Casting
   myDestinationAddress = ethHeader->destinationAddress;
-  mySourceAddress = ethHeader->.sourceAddress;
-  myTypeLen = ethHeader->typeLen;
+  mySourceAddress = ethHeader->sourceAddress;
+  //The type/length field in the ethernet frame header has the opposite endian
+  //representation compared with the implementation in the ETRAX unit.
+  myTypeLen = ((ethHeader->typeLen & 0x00ff) << 8) |
+                     (ethHeader->typeLen & 0xff00) >> 8));
   // Extract ethernet information and pass it up to LLC. This is done by
   // creating a LLCInPacket and decode it. Call returnRXBuffer when done
-  LLCInPacket llcInPack = new
+  LLCInPacket llc = new LLCInPacket(); //TODO properly initiate object
+  llc.decode();
+
+  Ethernet::instance().returnRXBuffer();
 }
 
-void EthernetInPacket::answer(byte* theData, udword theLength){
+
+void EthernetInPacket::answer(byte* theData, udword theLength){ //TODO
   // Upper layers may choose to send an answer to the sender of this packet
   // prepend the appropriate ethernet information and send the packet
+
+}
+
+uword EthernetInPacket::headerOffset() {
+  //TODO
 }
 //
 
