@@ -256,8 +256,6 @@ ethernet_interrupt()
   }
 }
 
-//----------------------------------------------------------------------------
-//
 bool
 Ethernet::getReceiveBuffer()
 {
@@ -368,7 +366,7 @@ Ethernet::decodeReceivedPacket()
 
   if (data2 == NULL) //No wrap around
   {
-    // STUFF: Create an EternetInPacket
+    // STOFF: Create an EternetInPacket
     ethernetInPacket = new EthernetInPacket(data1, length1, 0); //Lowest layer hence 0 - see FAQ
     cout << "Created an EthernetInPacket" << endl;
   }
@@ -505,19 +503,21 @@ Ethernet::resetTransmitter()
   }
 }
 
-// STUFF: Add EthernetJob implementation
+// STOFF: Add EthernetJob implementation
 //----------------------------------------------------------------------------
 EthernetJob::EthernetJob(EthernetInPacket* thePacket) : myPacket(thePacket) {
 }
 
-//TODO: Implement virtual destructor, somehow.
+EthernetJob::~EthernetJob(){
+  delete myPacket;
+}
 
 void EthernetJob::doit() {
   myPacket.decode(); //decode myPacket
 }
 //
 
-// STUFF: Add EthernetInPacket implementation
+// STOFF: Add EthernetInPacket implementation
 //-----------------------------------------------------------------------------
 EthernetInPacket::EthernetInPacket(byte* theData, udword theLength, InPacket* theFrame)
     : InPacket(theData, theLength, theFrame) {
@@ -536,7 +536,8 @@ void EthernetInPacket::decode() {
                      (ethHeader->typeLen & 0xff00) >> 8));
   // Extract ethernet information and pass it up to LLC. This is done by
   // creating a LLCInPacket and decode it. Call returnRXBuffer when done
-  LLCInPacket llc = new LLCInPacket(); //TODO properly initiate object
+  LLCInPacket llc = new LLCInPacket(theData, theLength, theFrame,
+                                    myDestinationAddress, mySourceAddress, myTypeLen); //TODO properly initiate object
   llc.decode();
 
   Ethernet::instance().returnRXBuffer();
@@ -546,11 +547,13 @@ void EthernetInPacket::decode() {
 void EthernetInPacket::answer(byte* theData, udword theLength){ //TODO
   // Upper layers may choose to send an answer to the sender of this packet
   // prepend the appropriate ethernet information and send the packet
-
+  //TODO make sure lengths are valid
 }
 
 uword EthernetInPacket::headerOffset() {
   //TODO
+  // Return the length of the ethernet header,
+  // see Ethernet::ethernetHeaderLength
 }
 //
 
