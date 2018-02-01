@@ -77,7 +77,7 @@ void NetworkLEDTimer::start() {
 }
 
 void NetworkLEDTimer::timeOut() {
-  cout << "NetworkLEDTimer timed out." << endl; //Placeholder // notify FrontPanel that this timer has expired.
+  // cout << "NetworkLEDTimer timed out." << endl; //Placeholder // notify FrontPanel that this timer has expired.
   FrontPanel::instance().notifyLedEvent(FrontPanel::networkLedId);
 }
 
@@ -127,7 +127,7 @@ FrontPanel& FrontPanel::instance() {
 
 // Turn Network led on and start network led timer
 void FrontPanel::packetReceived() {
-  cout << "Received a packet" << endl;
+  // cout << "Received a packet" << endl;
   myNetworkLED.on();
   myNetworkLEDTimer->start();
 }
