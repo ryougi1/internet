@@ -385,7 +385,6 @@ Ethernet::decodeReceivedPacket()
   // STOFF: Create and schedule an EthernetJob to decode the EthernetInPacket
   EthernetJob* ethernetJob = new EthernetJob(ethernetInPacket);
   Job::schedule(ethernetJob);
-  cout << "Scheduled an ethernetJob" << endl;
 }
 
 //----------------------------------------------------------------------------
@@ -453,12 +452,17 @@ Ethernet::transmittPacket(byte *theData, udword theLength)
   // accordingly.
 
   // STUFF: Find the first available page in the transmitt buffer
+  //BufferPage* txPagePointer = (BufferPage*)(txStartAddress + (nextTxPage * 256));
 
   if (nextTxPage + nOfBufferPagesNeeded <= txBufferPages)
   {
     // STUFF: Copy the packet to the transmitt buffer
     // Simple case, no wrap
+    //Copy from memory???
     // Pad undersized packets
+    if (theLength < minPacketLength + ethernetHeaderLength) {
+      theLength = minPacketLength + ethernetHeaderLength;
+    }
   }
   else
   {
@@ -514,6 +518,8 @@ EthernetJob::~EthernetJob(){
 
 void EthernetJob::doit() {
   myPacket.decode(); //decode myPacket
+  cout << "Scheduled an ethernetJob" << endl;
+
 }
 //
 
@@ -523,8 +529,7 @@ EthernetInPacket::EthernetInPacket(byte* theData, udword theLength, InPacket* th
     : InPacket(theData, theLength, theFrame) {
 }
 
-void EthernetInPacket::decode() {
-  // Decode this ethernet packet.
+void EthernetInPacket::decode() {   // Decode this ethernet packet.
   //The class EthernetHeader is declared to contain exactly the same data fields
   //as those present in an ethernet frame header.
   EthernetHeader* ethHeader = (EthernetHeader*)myData; //Pass the entire ethernet frame to EthernetHeader, see descr. section: Casting
@@ -534,11 +539,15 @@ void EthernetInPacket::decode() {
   //representation compared with the implementation in the ETRAX unit.
   myTypeLen = ((ethHeader->typeLen & 0x00ff) << 8) |
                      (ethHeader->typeLen & 0xff00) >> 8));
+
   // Extract ethernet information and pass it up to LLC. This is done by
   // creating a LLCInPacket and decode it. Call returnRXBuffer when done
-  LLCInPacket llc = new LLCInPacket(theData, theLength, theFrame,
-                                    myDestinationAddress, mySourceAddress, myTypeLen); //TODO properly initiate object
+  myData += headerOffset(); //Remove header ethernet header
+  myLength -= (headerOffset() + Ethernet::crcLength) //Remove footer
+  LLCInPacket llc = new LLCInPacket(myData, myLength, this,
+                                    myDestinationAddress, mySourceAddress, myTypeLen);
   llc.decode();
+  cout << "Decoded ethernet frame" << endl;
 
   Ethernet::instance().returnRXBuffer();
 }
@@ -547,13 +556,16 @@ void EthernetInPacket::decode() {
 void EthernetInPacket::answer(byte* theData, udword theLength){ //TODO
   // Upper layers may choose to send an answer to the sender of this packet
   // prepend the appropriate ethernet information and send the packet
-  //TODO make sure lengths are valid
+  cout << "EthernetInPacket.answer() was called" << endl;
+  //TODO change the sizes to fit new header
+  //TODO create header with source, destination and typelength
+  //TODO call transmittPacket
 }
 
 uword EthernetInPacket::headerOffset() {
-  //TODO
   // Return the length of the ethernet header,
   // see Ethernet::ethernetHeaderLength
+  return Ethernet::instance().ethernetHeaderLength;
 }
 //
 
