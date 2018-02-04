@@ -372,6 +372,7 @@ Ethernet::decodeReceivedPacket()
     memcpy(wrappedPacket, data1, length1);
     memcpy((wrappedPacket + length1), data2, length2);
     // STOFF: Create an EternetInPacket
+    cout << "got a wrapped packet" << endl;
     ethernetInPacket = new EthernetInPacket(wrappedPacket, length1 + length2, 0);
   }
   // STOFF: Create and schedule an EthernetJob to decode the EthernetInPacket
@@ -449,25 +450,26 @@ Ethernet::transmittPacket(byte *theData, udword theLength) {
     // STOFF: Copy the packet to the transmitt buffer
     // Simple case, no wrap
     memcpy(txPagePointer->data, theData, theLength);
-    if (theLength < (minPacketLength + ethernetHeaderLength)) {
-      theLength = minPacketLength + ethernetHeaderLength; // Pad undersized packets
+    if (theLength < (udword)(minPacketLength + ethernetHeaderLength + crcLength)) {
+      theLength = (udword)(minPacketLength + ethernetHeaderLength + crcLength); // Pad undersized packets
     }
     txPagePointer->endPointer = ((udword) txPagePointer->data + theLength - 1); //Direct the endPointer to the end of the data
+    cout << "Core " << ax_coreleft_total() << endl;
   } else {
     trace << "Warped transmission" << endl;
     // STOFF: Copy the two parts into the transmitt buffer, cannot be undersized
-    udword firstLength = (txStartAddress + txBufferSize) - (udword)(txPagePointer->data);
+    udword firstLength = (txStartAddress + txBufferSize) - (udword)(txPagePointer->data); //The end - beginning of data
     memcpy(txPagePointer->data, theData, firstLength); //Write as much as possible until we hit the end
-    memcpy((byte *) txStartAddress, theData - firstLength, theLength - firstLength); //Write the remaining data to the beginning of txBuffer
+    memcpy((byte *) txStartAddress, theData + firstLength, theLength - firstLength); //Write the remaining data to the beginning of txBuffer
     txPagePointer->endPointer = theLength - firstLength - 1;
-    //Since wrap around then packet is at least one block large, no need to worry about min size packet. 
+    //Since wrap around then packet is at least one block large, no need to worry about min size packet.
   }
 
   /* Now we can tell Etrax to send this packet. Unless it is already      */
   /* busy sending packets. In which case it will send this automatically  */
 
   // STOFF: Advance nextTxPage here!
-  nextTxPage = (nOfBufferPagesNeeded + 1) % txBufferPages; //Use modulo 32 to support wrap around
+  nextTxPage = (nextTxPage + nOfBufferPagesNeeded) % txBufferPages; //Use modulo 32 to support wrap around
 
   // Tell Etrax there isn't a packet at nextTxPage.
   BufferPage* nextPage = (BufferPage*)(txStartAddress + (nextTxPage * 256)); //Get nextTxPage
