@@ -106,15 +106,13 @@ Ethernet::initMemory()
     aPointer->statusCommand = 0x00;
     aPointer++;
   }
-
   delete aPointer;
 }
 
 //----------------------------------------------------------------------------
 //
 void
-Ethernet::initEtrax()
-{
+Ethernet::initEtrax() {
   trace << "initEtrax" << endl;
   DISABLE_SAVE();
 
@@ -198,8 +196,7 @@ Ethernet::initEtrax()
 //----------------------------------------------------------------------------
 //
 extern "C" void
-ethernet_interrupt()
-{
+ethernet_interrupt() {
   byte bufferStatus = *(volatile byte *)R_BUF_STATUS;
   /* Therer are four possible interrupts to handle here: */
   /* 1. Packet received                                  */
@@ -267,18 +264,17 @@ Ethernet::getReceiveBuffer()
   // The first page in the received packet is given by nextRxPage.
   // The first page starts at address 'rxStartAddress + (nextRxPage * 256)',
   // right?
-  BufferPage* pagePointer; //Declare a pointer to a BufferPage object so we can use its abstraction
-  pagePointer = (BufferPage *)rxStartAddress + (nextRxPage * 256); //Make sure the pointer points to the correct page by adding nextRxPage
-  udword realEndPtr = pagePointer->endPointer + endPtrOffset; // Actual end address of the received packet
-  if ((pagePointer->statusCommand == 0x01) || // Packet available
-      (pagePointer->statusCommand == 0x03))   // Packet available and buffer full
-  {
+  BufferPage* pagePointer = (BufferPage *) (rxStartAddress + (nextRxPage * 256)); //Make sure the pointer points to the correct page by adding nextRxPage
+
+  if ((pagePointer->statusCommand == 0x01) || (pagePointer->statusCommand == 0x03)) {
     // use endptr to find out where the packet ends, and if it is wrapped.
     //If address that endPointer points to is less than address of current packet, it wrapped around
+    udword realEndPtr = pagePointer->endPointer + endPtrOffset; // Actual end address of the received packet
+
     if (realEndPtr > (udword) pagePointer) {
       // one chunk of data
-      data1   =  pagePointer->data; // Pointer to the first byte in a received packet (byte*)
-      length1 = realEndPtr - (udword) data1; // Length of packet
+      data1   =  pagePointer->data; // Pointer to the beginning of data, beyond the first 4B
+      length1 = realEndPtr - (udword) data1; // End of packet - beginning of data
       data2   = NULL;
       length2 = 0;
     } else {
@@ -446,37 +442,41 @@ Ethernet::transmittPacket(byte *theData, udword theLength) {
   // Remember: Undersized packets must be padded! Just advance the end pointer
   // accordingly.
 
-  // STUFF: Find the first available page in the transmitt buffer
+  // STOFF: Get the first available page in the transmitt buffer
   BufferPage* txPagePointer = (BufferPage*)(txStartAddress + (nextTxPage * 256));
 
   if (nextTxPage + nOfBufferPagesNeeded <= txBufferPages) {
-    // STUFF: Copy the packet to the transmitt buffer
+    // STOFF: Copy the packet to the transmitt buffer
     // Simple case, no wrap
     memcpy(txPagePointer->data, theData, theLength);
     if (theLength < (minPacketLength + ethernetHeaderLength)) {
       theLength = minPacketLength + ethernetHeaderLength; // Pad undersized packets
     }
-    txPagePointer->endPointer = ((udword) txPagePointer->data + theLength - 1);
+    txPagePointer->endPointer = ((udword) txPagePointer->data + theLength - 1); //Direct the endPointer to the end of the data
   } else {
     trace << "Warped transmission" << endl;
-    // STUFF: Copy the two parts into the transmitt buffer, cannot be undersized
-
+    // STOFF: Copy the two parts into the transmitt buffer, cannot be undersized
+    udword firstLength = (txStartAddress + txBufferSize) - (udword)(txPagePointer->data);
+    memcpy(txPagePointer->data, theData, firstLength); //Write as much as possible until we hit the end
+    memcpy((byte *) txStartAddress, theData - firstLength, theLength - firstLength); //Write the remaining data to the beginning of txBuffer
+    txPagePointer->endPointer = theLength - firstLength - 1;
+    //Since wrap around then packet is at least one block large, no need to worry about min size packet. 
   }
 
   /* Now we can tell Etrax to send this packet. Unless it is already      */
   /* busy sending packets. In which case it will send this automatically  */
 
-  // STUFF: Advance nextTxPage here!
-  nextTxPage = (nOfBufferPagesNeeded + 1) % txBufferPages;
+  // STOFF: Advance nextTxPage here!
+  nextTxPage = (nOfBufferPagesNeeded + 1) % txBufferPages; //Use modulo 32 to support wrap around
 
   // Tell Etrax there isn't a packet at nextTxPage.
-  BufferPage* nextPage = (BufferPage*)(txStartAddress + (nextTxPage * 256));
-  nextPage->statusCommand = 0x00;
-  //nextPage->endPointer = 0x00;
+  BufferPage* nextPage = (BufferPage*)(txStartAddress + (nextTxPage * 256)); //Get nextTxPage
+  nextPage->statusCommand = 0x00; //Don't send me
+  nextPage->endPointer = 0x00; //Don't send me
 
-  // STUFF: Tell Etrax to start sending by setting the 'statusCommand' byte of
+  // STOFF: Tell Etrax to start sending by setting the 'statusCommand' byte of
   // the first page in the packet to 0x10!
-  txPagePointer->statusCommand = 0x10;
+  txPagePointer->statusCommand = 0x10; //Send me
   *(volatile byte*)R_TR_CMD = 0x12;
 }
 
@@ -512,7 +512,7 @@ EthernetJob::EthernetJob(EthernetInPacket* thePacket) : myPacket(thePacket) {
 
 void EthernetJob::doit() {
   myPacket->decode(); //decode myPacket
-  //TODO: Delete???
+  //delete myPacket;
 }
 //
 
@@ -522,7 +522,7 @@ EthernetInPacket::EthernetInPacket(byte* theData, udword theLength, InPacket* th
     : InPacket(theData, theLength, theFrame) {
 }
 
-void EthernetInPacket::decode() {   // Decode this ethernet packet.
+void EthernetInPacket::decode() {
   //The class EthernetHeader is declared to contain exactly the same data fields
   //as those present in an ethernet frame header.
   EthernetHeader* ethHeader = (EthernetHeader*) myData; //Pass the entire ethernet frame to EthernetHeader, see descr. section: Casting
@@ -534,14 +534,14 @@ void EthernetInPacket::decode() {   // Decode this ethernet packet.
 
   // Extract ethernet information and pass it up to LLC. This is done by
   // creating a LLCInPacket and decode it. Call returnRXBuffer when done
+  // myData and myLength from protected variables in InPacket
   myData += headerOffset(); //Remove ethernet header
-  myLength -= (headerOffset() + Ethernet::crcLength); //Remove footer
+  myLength -= (headerOffset() + Ethernet::crcLength); //Also remove footer
   LLCInPacket* llc = new LLCInPacket(myData, myLength, this, myDestinationAddress, mySourceAddress, myTypeLen);
   llc->decode();
-
   //TODO Delete myData, llc?
+
   Ethernet::instance().returnRXBuffer();
-  // cout << "Decoded ethernet frame" << endl;
 }
 
 
@@ -554,10 +554,12 @@ void EthernetInPacket::answer(byte* theData, udword theLength){
   responseHeader->typeLen = ((myTypeLen & 0x00ff) << 8) | ((myTypeLen & 0xff00) >> 8); //Flip endian again
 
   theData -= headerOffset(); //Move pointer back to make space for header
-  memcpy(theData, responseHeader, headerOffset()); //TODO: Might not work
+  memcpy(theData, responseHeader, headerOffset());
   theLength += headerOffset(); //Adapt length to include header
+  //Do not add CRC, nore make room for it, will be done automatically after the
+  //address of endPointer in transmittPacket (see FAQ).
   Ethernet::instance().transmittPacket(theData, theLength);
-  //TODO: Delete???
+  //TODO: Delete responseHeader???
 }
 
 uword EthernetInPacket::headerOffset() {
