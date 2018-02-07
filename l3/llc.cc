@@ -47,47 +47,26 @@ myTypeLen(theTypeLen)
 //----------------------------------------------------------------------------
 //
 void
-LLCInPacket::decode()
-{
-  trace << "to " << myDestinationAddress << " from " << mySourceAddress
-   << " typeLen " << myTypeLen << endl;
-  if (myDestinationAddress == Ethernet::instance().myAddress())
-  {
-	trace << "length " << myLength << " typelen 0x" << hex << myTypeLen
-		  << dec << " (" << myTypeLen << ")" << endl;
-    if ((myTypeLen == 0x800) &&
-		(myLength > 28) &&
-		(*(myData + 20) == 8))
-	{
-	  // check if is an ICMP ECHO request skip IP totally...
-          uword icmpSeq = *(uword*)(myData + 26);
-          icmpSeq = ((icmpSeq & 0xff00) >> 8) | ((icmpSeq & 0x00ff) << 8);
-  	  trace << "icmp echo, icmp_seq=" << icmpSeq << endl;
-	  // create a resonse...
-          uword hoffs = myFrame->headerOffset();
-          byte* temp = new byte[myLength + hoffs];
-	  byte* aReply = temp + hoffs;
-	  memcpy(aReply, myData, myLength);
-	  // by reusing his ip packet (including id nr) we get the same checksum :)
-      // Just reverse IP addresses.
-      aReply[12] = myData[16];
-      aReply[13] = myData[17];
-      aReply[14] = myData[18];
-      aReply[15] = myData[19];
-      aReply[16] = myData[12];
-      aReply[17] = myData[13];
-      aReply[18] = myData[14];
-      aReply[19] = myData[15];
+LLCInPacket::decode() {
+  //It may be assumed that ethernet encapsulation (RFC894) only should be detected.
+  //The type field in the ethernet frame is used in order to distinguish between
+  //ARP packets and IP datagrams [Stevens96] p.23.
+  //Detect ARP packets and IP datagrams and send them to the appropriate layers for further processing.
 
-	  // Change to reply
-	  aReply[20] = 0;
-	  // Adjust ICMP checksum...
-      uword oldSum = *(uword*)(myData + 22);
-	  uword newSum = oldSum + 0x8;
-      *(uword*)(aReply + 22) = newSum;
-	  this->answer(aReply, myLength);
-	}
+  if (myTypeLen == 0x0806) { //TL for ARP-req, broadcasted
+    ARPInPacket* arp = new ARPInPacket(myData, myLength, this);
+    arp->decode();
+    delete arp;
   }
+
+  if (myDestinationAddress == Ethernet::instance().myAddress()) { //Only decode IP packets meant for us
+    if (myTypeLen == 0x0800) {
+      IPInPacket* ip = new IPInPacket(myData, myLength, this);
+      ip->decode();
+      delete ip;
+    }
+  }
+
 }
 
 //----------------------------------------------------------------------------

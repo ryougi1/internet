@@ -7,12 +7,6 @@
 *!***************************************************************************/
 
 /****************** INCLUDE FILES SECTION ***********************************/
-
-//det verkar som att programmet kraschar efter att ha tagit emot ett enda (eller noll?) paket
-//även när vi använder endast lamporna som feedback verkar detta vara fallet , därmed inte utskrifterna som fuckar för oss
-
-//Finns en chans att wrap around fungerar annorlunda än vad vi tänkte från början
-
 #include "compiler.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -285,7 +279,6 @@ Ethernet::getReceiveBuffer()
       length2 = realEndPtr - rxStartAddress; //End of received packet - start of the buffer
     }
     // cout << "Core " << ax_coreleft_total() << endl;
-    delete pagePointer;
     return true;
   }
 #ifdef D_ETHER
@@ -509,10 +502,6 @@ Ethernet::resetTransmitter()
 EthernetJob::EthernetJob(EthernetInPacket* thePacket) : myPacket(thePacket) {
 }
 
-// EthernetJob::~EthernetJob(){
-//   delete myPacket;
-// }
-
 void EthernetJob::doit() {
   myPacket->decode(); //decode myPacket
   delete myPacket;
@@ -544,8 +533,8 @@ void EthernetInPacket::decode() {
   llc->decode();
 
   delete myData;
+  delete myFrame;
   delete llc;
-  delete ethHeader;
   Ethernet::instance().returnRXBuffer();
 }
 
@@ -565,6 +554,7 @@ void EthernetInPacket::answer(byte* theData, udword theLength){
   //address of endPointer in transmittPacket (see FAQ).
   Ethernet::instance().transmittPacket(theData, theLength);
   delete responseHeader;
+  delete[] theData;
 }
 
 uword EthernetInPacket::headerOffset() {
