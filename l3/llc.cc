@@ -53,7 +53,7 @@ LLCInPacket::decode() {
   //ARP packets and IP datagrams [Stevens96] p.23.
   //Detect ARP packets and IP datagrams and send them to the appropriate layers for further processing.
 
-  if (myTypeLen == 0x0806) { //TL for ARP-req, broadcasted
+  if (myTypeLen == 0x0806) { //TL for ARP-req, broadcasted so must check all
     ARPInPacket* arp = new ARPInPacket(myData, myLength, this);
     arp->decode();
     delete arp;
