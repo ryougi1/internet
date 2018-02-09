@@ -21,11 +21,10 @@ extern "C"
 #endif
 /****************** ARP DEFINITION SECTION *************************/
 //Constructor
-LLCInPacket::LLCInPacket(byte*           theData,
+ARPInPacket::ARPInPacket(byte*           theData,
                          udword          theLength,
 						             InPacket*       theFrame):
-InPacket(theData, theLength, theFrame)
-{
+InPacket(theData, theLength, theFrame) {
 }
 
 //----------------------------------------------------------------------------
@@ -37,18 +36,28 @@ ARPInPacket::decode() {
   IPAddress* myIp = new IPAddress(130.235.200.115); //Needed for the if statement
   if (arpHeader->targetIPAddress == myIp) { //Are you looking for me?
 
-    ARPHeader* replyHeader = (ARPHeader *) reply;
-    //Set sender ip to us
-    //Set target ip to original sender
-    //Set sender eth address to us
-    //Set target eth address to original sender
-    //Set op to reply (HILO see descr.)
-
-    /**
-    FROM RFC: A reply has the same length as a request, and several
-    of the fields are the same. Does it matter what's in the data of the reply???
+    //From lab2 LLC decode method
+    /*
+    uword hoffs = myFrame->headerOffset(); //Was myFrame->headerOffset ???
+    byte* temp = new byte[myLength + hoffs]; //Temp points to beginning of byte vector
+    byte* aReply = temp + hoffs; //aReply points to beginning of data in the byte vector
+    memcpy(aReply, myData, myLength);
     */
-    //TODO Create the reply
+
+    uword flippedOp = HILO(0x0002);
+    arpHeader->op = flippedOp; //Set op to reply (HILO see descr.)
+
+    IPAddress senderIp = arpHeader->senderIPAddress; //Save sender IP
+    arpHeader->senderIPAddress = myIp; //Set sender ip to us, not effected by endian (nee)
+    arpHeader->targetIPAddress = senderIp; //Set target ip to original sender (nee)
+
+    EthernetAddress senderMAC = arpHeader->senderEthAddress;
+    arpHeader->senderEthAddress = Ethernet::instance().myAddress(); //Set sender eth address to us (nee)
+    arpHeader->targetEthAddress = senderMAC; //Set target eth address to original sender (nee)
+
+    uword headerOffset = headerOffset();
+    memcpy(myData, arpHeader, headerOffset);
+    this->answer(myData, myLength);
   }
   delete myIp;
 }
@@ -56,13 +65,12 @@ ARPInPacket::decode() {
 //----------------------------------------------------------------------------
 //
 void
-ARPInPacket::answer(byte *theData, udword theLength)
-{
+ARPInPacket::answer(byte *theData, udword theLength) {
+  cout << "arp answer" << endl;
   myFrame->answer(theData, theLength);
 }
 
 uword
-ARPInPacket::headerOffset()
-{
+ARPInPacket::headerOffset() {
   return myFrame->headerOffset() + 28; //ARP header length is 28 bytes
 }

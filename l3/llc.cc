@@ -20,6 +20,7 @@ extern "C"
 #include "iostream.hh"
 #include "ethernet.hh"
 #include "llc.hh"
+#include "arp.hh"
 
 //#define D_LLC
 #ifdef D_LLC
@@ -59,6 +60,7 @@ LLCInPacket::decode() {
     delete arp;
   }
 
+/*
   if (myDestinationAddress == Ethernet::instance().myAddress()) { //Only decode IP packets meant for us
     if (myTypeLen == 0x0800) {
       IPInPacket* ip = new IPInPacket(myData, myLength, this);
@@ -66,8 +68,9 @@ LLCInPacket::decode() {
       delete ip;
     }
   }
-
+*/
 }
+
 
 //----------------------------------------------------------------------------
 //
