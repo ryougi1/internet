@@ -10,7 +10,7 @@ extern "C"
 }
 
 #include "iostream.hh"
-#include "icmp_hh"
+#include "icmp.hh"
 
 //#define D_LLC
 #ifdef D_ARP
@@ -34,13 +34,25 @@ ICMPInPacket::decode() {
   Detect ICMP echo requests and answer them [Stevens96] p.86.The assembly of
   a reply packet is accomplished by changing the fields type and checksum.
   */
-  ICMPHeader* arpHeader = (ICMPHeader *) myData;
-  /**
-  if (Check type) {
-    Change type to Echo Reply
-    Set checksum
+  ICMPHeader* icmpHeader = (ICMPHeader *) myData;
+
+  if (icmpHeader->type == 0x08) {
+    icmpHeader->type = 0;
+    // Adjust ICMP checksum... (taken from llc class lab2)
+    /**
+    uword oldSum = icmpHeader->checksum;
+	  uword newSum = oldSum + 0x8;
+    icmpHeader->checksum = newSum;
+    */
+    uword oldSum = *(uword*)(myData + 2);
+    uword newSum = oldSum + 0x8;
+    icmpHeader->checksum = 0;
+    icmpHeader->checksum = newSum;
+
+    memcpy(myData, icmpHeader, ICMPInPacket::icmpHeaderLen);
+    answer(myData, myLength);
   }
-  */
+
 
 }
 
@@ -53,5 +65,5 @@ ICMPInPacket::answer(byte *theData, udword theLength) {
 
 uword
 ICMPInPacket::headerOffset() {
-  return myFrame->headerOffset() + 28;
+  return myFrame->headerOffset() + 4;
 }

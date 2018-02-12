@@ -58,6 +58,7 @@ LLCInPacket::decode() {
   if (myTypeLen == 0x0806) { //TL for ARP-req, broadcasted so must check all
     ARPInPacket* arp = new ARPInPacket(myData, myLength, this);
     //ARPInPacket arp(myData, myLength, this);
+    //arp.decode();
     arp->decode();
     delete arp;
   }
@@ -66,6 +67,7 @@ LLCInPacket::decode() {
     if (myTypeLen == 0x0800) {
       IPInPacket* ip = new IPInPacket(myData, myLength, this);
       //IPInPacket ip(myData, myLength, this);
+      //ip.decode();
       ip->decode();
       delete ip;
     }

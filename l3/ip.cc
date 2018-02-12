@@ -21,7 +21,7 @@ extern "C"
 #define trace if(false) cout
 #endif
 /****************** IP DEFINITION SECTION *************************/
-udword seqNum = 0; //2 bytes identification
+uword seqNum = 0; //2 bytes identification
 
 IPInPacket::IPInPacket(byte*           theData,
                          udword          theLength,
@@ -34,8 +34,7 @@ InPacket(theData, theLength, theFrame) {
 void
 IPInPacket::decode() {
   IPHeader* ipHeader = (IPHeader *) myData;
-  IPAddress* myIp = new IPAddress(130.235.200.115); //Needed for the if statement
-  //IPAddress myIp(130.235.200.115);
+  IPAddress myIp(130,235,200,115); //Needed for the if statement
   /**
   The only packets to be processed are those addressed directly to the server,
   all IP broadcasts may be ignored. Check if the field destination IP address
@@ -52,9 +51,9 @@ IPInPacket::decode() {
   Make sure the packet is not fragmented by a check that the field
   fragmentFlagsNOffset (defined in the class IPHeader) & 0x3FFF is zero.
   */
-  if (ipHeader->destinationIPAddress == myIp &&
-      ipHeader->versionNHeaderLength == 0x45 &&
-      (ipHeader->fragmentFlagsNOffset & 0x3FFF) == 0) {
+  if ((ipHeader->destinationIPAddress == myIp) &&
+        (ipHeader->versionNHeaderLength == 0x45) &&
+        (HILO(ipHeader->fragmentFlagsNOffset) & 0x3FFF) == 0) {
         /**
         Use the field total length in order to calculate the length of the packet to
         be sent on to the upper layers of the stack. This is important as the packet
@@ -75,14 +74,10 @@ IPInPacket::decode() {
         if (ipHeader->protocol == 1) { //Assigned internet protocol number for ICMP (RFC790)
           ICMPInPacket* icmp = new ICMPInPacket(myData + IP::ipHeaderLength, realTotalLength - IP::ipHeaderLength, this);
           //ICMPInPacket icmp(myData + IP::ipHeaderLength, realTotalLength - IP::ipHeaderLength, this);
-          icmp.decode();
-          //delete icmp;
+          icmp->decode();
+          delete icmp;
         }
-        //if (ipHeader->protocol == 6) {
-          //TCP yo
-        //}
-      }
-      delete myIp;
+  }
 }
 
 //----------------------------------------------------------------------------
@@ -105,10 +100,9 @@ IPInPacket::answer(byte *theData, udword theLength) {
   seqNum = (seqNum + 1) % 65536; //Starts at 0 all the way up to 2^16, then back to 0
   replyHeader->fragmentFlagsNOffset = 0; //Set the field fragmentFlagsNOffset to 0.
   replyHeader->timeToLive = 0x40; //Set the time to live field to 64, which is the default in TCP/IP.
-  replyHeader->myProtocol; //Set the field protocol to the value saved in the decoding process.
+  replyHeader->protocol = myProtocol; //Set the field protocol to the value saved in the decoding process.
   replyHeader->headerChecksum = 0; //Set the checksum field to 0 in to prepare for the checksum calculation.
-  IPAddress* myIp = new IPAddress(130.235.200.115);
-  //IPAddress myIp(130.235.200.115);
+  IPAddress myIp(130,235,200,115);
   replyHeader->sourceIPAddress = myIp; //Set the field source IP address to the IP address of your server.
   replyHeader->destinationIPAddress = mySourceIPAddress; //Set the field destination IP address to the source IP address saved in the decoding process.
   /**
@@ -118,13 +112,13 @@ IPInPacket::answer(byte *theData, udword theLength) {
   according to the network byte order, and should not be altered.
   Checksum is calculated on the header only.
   */
-  replyHeader->headerChecksum = calculateChecksum((byte*)replyHeader, IP::ipHeaderLength, 0)
+  replyHeader->headerChecksum = calculateChecksum((byte*)replyHeader, IP::ipHeaderLength, 0);
 
   theData -= IP::ipHeaderLength;
   memcpy(theData, replyHeader, IP::ipHeaderLength);
   theLength += IP::ipHeaderLength;
   myFrame->answer(theData, theLength);
-  delete myIp;
+  delete replyHeader;
 }
 
 uword

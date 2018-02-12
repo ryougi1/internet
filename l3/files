@@ -7,6 +7,10 @@ frontpanel.cc
 ethernet.cc
 inpacket.cc
 llc.cc
+arp.cc
+ip.cc
+icmp.cc
+ipaddr.cc
 
 system/system.c
 system/xprintf.c

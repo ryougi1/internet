@@ -33,10 +33,8 @@ void
 ARPInPacket::decode() {
   //Use ARPHeader as declared in arp.hh, same typecasting declaration as in Ethernet.cc
   ARPHeader* arpHeader = (ARPHeader *) myData;
-  IPAddress* myIp = new IPAddress(130.235.200.115); //Needed for the if statement
-  //IPAddress myIp = IPAddress(130, 235, 200, 115);
+  IPAddress myIp(130,235,200,115); //Needed for the if statement
   if (arpHeader->targetIPAddress == myIp) { //Are you looking for me?
-
     //From lab2 LLC decode method
     /*
     uword hoffs = myFrame->headerOffset(); //Was myFrame->headerOffset ???
@@ -66,7 +64,6 @@ ARPInPacket::decode() {
     memcpy(myData, arpHeader, 28); //ARP header length is 28 bytes
     answer(myData, myLength);
   }
-  delete myIp;
 }
 
 //----------------------------------------------------------------------------
