@@ -530,6 +530,7 @@ void EthernetInPacket::decode() {
   myData += headerOffset(); //Remove ethernet header
   myLength -= (headerOffset() + Ethernet::crcLength); //Also remove footer
   LLCInPacket* llc = new LLCInPacket(myData, myLength, this, myDestinationAddress, mySourceAddress, myTypeLen);
+  //LLCInPacket llc(myData, myLength, this, myDestinationAddress, mySourceAddress, myTypeLen);
   llc->decode();
 
   delete myData;

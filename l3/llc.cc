@@ -21,6 +21,7 @@ extern "C"
 #include "ethernet.hh"
 #include "llc.hh"
 #include "arp.hh"
+#include "ip.hh"
 
 //#define D_LLC
 #ifdef D_LLC
@@ -56,19 +57,19 @@ LLCInPacket::decode() {
 
   if (myTypeLen == 0x0806) { //TL for ARP-req, broadcasted so must check all
     ARPInPacket* arp = new ARPInPacket(myData, myLength, this);
+    //ARPInPacket arp(myData, myLength, this);
     arp->decode();
     delete arp;
   }
 
-/*
   if (myDestinationAddress == Ethernet::instance().myAddress()) { //Only decode IP packets meant for us
     if (myTypeLen == 0x0800) {
       IPInPacket* ip = new IPInPacket(myData, myLength, this);
+      //IPInPacket ip(myData, myLength, this);
       ip->decode();
       delete ip;
     }
   }
-*/
 }
 
 

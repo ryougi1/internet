@@ -10,8 +10,8 @@ extern "C"
 }
 
 #include "iostream.hh"
-#include "ethernet.hh"
 #include "arp.hh"
+//#include "ipaddr.hh"
 
 //#define D_LLC
 #ifdef D_ARP
@@ -34,6 +34,7 @@ ARPInPacket::decode() {
   //Use ARPHeader as declared in arp.hh, same typecasting declaration as in Ethernet.cc
   ARPHeader* arpHeader = (ARPHeader *) myData;
   IPAddress* myIp = new IPAddress(130.235.200.115); //Needed for the if statement
+  //IPAddress myIp = IPAddress(130, 235, 200, 115);
   if (arpHeader->targetIPAddress == myIp) { //Are you looking for me?
 
     //From lab2 LLC decode method
@@ -42,8 +43,15 @@ ARPInPacket::decode() {
     byte* temp = new byte[myLength + hoffs]; //Temp points to beginning of byte vector
     byte* aReply = temp + hoffs; //aReply points to beginning of data in the byte vector
     memcpy(aReply, myData, myLength);
+    ARPHeader* replyHeader = (ARPHeader *) aReply;
+    ...
+    Set the header fields
+    ...
+    answer(aReply, myLength + hoffs)
     */
 
+    //Reuse the inpacket by overwriting the fields in the header with the new
+    //values, and keeping everything else the same.
     uword flippedOp = HILO(0x0002);
     arpHeader->op = flippedOp; //Set op to reply (HILO see descr.)
 
@@ -55,9 +63,8 @@ ARPInPacket::decode() {
     arpHeader->senderEthAddress = Ethernet::instance().myAddress(); //Set sender eth address to us (nee)
     arpHeader->targetEthAddress = senderMAC; //Set target eth address to original sender (nee)
 
-    uword headerOffset = headerOffset();
-    memcpy(myData, arpHeader, headerOffset);
-    this->answer(myData, myLength);
+    memcpy(myData, arpHeader, 28); //ARP header length is 28 bytes
+    answer(myData, myLength);
   }
   delete myIp;
 }
@@ -66,11 +73,10 @@ ARPInPacket::decode() {
 //
 void
 ARPInPacket::answer(byte *theData, udword theLength) {
-  cout << "arp answer" << endl;
   myFrame->answer(theData, theLength);
 }
 
 uword
 ARPInPacket::headerOffset() {
-  return myFrame->headerOffset() + 28; //ARP header length is 28 bytes
+  return myFrame->headerOffset() + 28;
 }
