@@ -158,13 +158,13 @@ void TCPConnection::Acknowledge(udword theAcknowledgementNumber) {
 
 //Send outgoing data
 void TCPConnection::Send(byte* theData, udword theLength) {
-  //TODO:
+  myTCPSender->sendData(theData, theLength);
 }
 //----------------------------------------------------------------------------
 // TCPState contains dummies for all the operations, only the interesting ones
 // gets overloaded by the various sub classes.
 
-//TODO Implement dummies???
+//TODO Add dummies
 
 void TCPState::Kill(TCPConnection* theConnection) {
   trace << "TCPState::Kill" << endl;
@@ -197,7 +197,7 @@ void ListenState::Synchronize(TCPConnection* theConnection,
      /**The variable sentUnAcked contains the latest sequence number an
      acknowledgement has been received for.
      */
-     theConnection->sentUnAcked = theConnection->sendNext; //Client should ACK our sendNext
+     theConnection->sentUnAcked = theConnection->sendNext;
      // Send a segment with the SYN and ACK flags set.
      theConnection->myTCPSender->sendFlags(0x12);
      // Prepare for the next send operation.
@@ -222,8 +222,15 @@ SynRecvdState* SynRecvdState::instance() {
   return &myInstance;
 }
 
+/**
+After LISTEN state, where we receive a (SYN) and sent a (SYN, ACK).
+Expect to get (ACK) on our (SYN, ACK) .
+*/
 void SynRecvdState::Acknowledge(TCPConnection* theConnection, udword theAcknowledgementNumber) {
   //TODO:
+  //Check ACK nr receiveNext
+  //Update sentUnAcked
+  //Change connection state to ESTABLISHED instance
 }
 
 //----------------------------------------------------------------------------
@@ -260,12 +267,19 @@ void EstablishedState::Receive(TCPConnection* theConnection,
 
   // Delayed ACK is not implemented, simply acknowledge the data
   // by sending an ACK segment, then echo the data using Send.
-
+  //TODO:
+  //Check that seq nr matches receiveNext
+  //update receivenext
+  //Call Send to echo.
 }
 
 //Handle incoming Acknowledgement
 void EstablishedState::Acknowledge(TCPConnection* theConnection, udword theAcknowledgementNumber) {
   //TODO:
+  /**The variable sentUnAcked contains the latest sequence number an
+  acknowledgement has been received for.
+  */
+  //update sentUnAcked
 }
 
 void EstablishedState::Send(TCPConnection* theConnection,
@@ -273,6 +287,8 @@ void EstablishedState::Send(TCPConnection* theConnection,
           udword theLength)
 {
   //TODO:
+  //Call connection send.
+  //Update sequence number sendNext
 }
 
 
@@ -323,7 +339,7 @@ Once the checksum is calculated, the pseudoheader is discarded. Why have it?
 //Send a flag segment without data
 void TCPSender::sendFlags(byte theFlags) {
   // Decide on the value of the length totalSegmentLength.
-  //TODO (No data -> 20 bytes?)
+  uword totalSegmentLength = TCP::tcpHeaderLength; //No data
   // Allocate a TCP segment.
   byte* anAnswer = new byte[totalSegmentLength];
   // Calculate the pseudo header checksum
@@ -332,7 +348,19 @@ void TCPSender::sendFlags(byte theFlags) {
                         totalSegmentLength);
   uword pseudosum = aPseudoHeader->checksum();
   delete aPseudoHeader;
-  // Create the TCP segment.
+
+  // TODO: Create the TCP segment.
+  //TCPHeader replyHeader = (TCPHeader *) anAnswer;
+  //Set source port
+  //Set dest port
+  //Set seq nr
+  //Set ack nr
+  //Set header length
+  //Set flags
+  //Set window size
+  //Set checksum = 0 to prep
+  //Set urgent pointer
+
   // Calculate the final checksum.
   aTCPHeader->checksum = calculateChecksum(anAnswer,
                                            totalSegmentLength,
@@ -347,6 +375,18 @@ void TCPSender::sendFlags(byte theFlags) {
 //Send a data segment. PSH and ACK flags are set
 void TCPSender::sendData(byte* theData, udword theLength) {
   //TODO:
+  // Total length
+  // byte vector as above
+  // Calculate the pseudo header checksum
+
+  //Create header and set header fields as above
+
+  // Calculate the final checksum
+
+  //Send the TCP segment
+
+  //Deallocate the dynamic memory
+
 }
 
 
@@ -365,9 +405,10 @@ void TCPInPacket::decode() {
   // Extract the parameters from the TCP header which define the
   // connection.
   TCPHeader* tcpHeader = (TCPHeader *) myData;
-  //mySourceAddress = tcpHeader->theSourceAddress; ???
-  mySourcePort = tcpHeader->sourcePort;
-  myDestinationPort = tcpHeader->destinationPort;
+  mySourcePort = HILO(tcpHeader->sourcePort);
+  myDestinationPort = HILO(tcpHeader->destinationPort);
+  mySequenceNumber = LHILO(tcpHeader->sequenceNumber);
+  myAcknowledgementNumber = LHILO(tcpHeader->acknowledgementNumber);
 
   TCPConnection* aConnection =
            TCP::instance().getConnection(mySourceAddress,
@@ -380,7 +421,7 @@ void TCPInPacket::decode() {
                                             mySourcePort,
                                             myDestinationPort,
                                             this);
-      if ((aTCPHeader->flags & 0x02) != 0) {
+      if ((tcpHeader->flags & 0x02) != 0) {
         // State LISTEN. Received a SYN flag.
         aConnection->Synchronize(mySequenceNumber);
       } else {
@@ -388,13 +429,35 @@ void TCPInPacket::decode() {
         aConnection->Kill();
       }
     } else {
-      // Connection was established. Handle all states.
-      //TODO:
+      // TODO: Connection was established. Handle all states.
+
+      //State ESTABLISHED. Received RST flag
+      if ((tcpHeader->flags & 0x04) == 0x04) {
+        aConnection->Kill();
+      }
+
+      //State ESTABLISHED. Received FIN flag.
+      if ((tcpHeader->flags & 0x01) == 0x01) {
+        aConnection->NetClose();
+      }
+
+      //State ESTABLISHED. Received ACK flag.
+      if ((tcpHeader->flags & 0x10) == 0x10) {
+        aConnection->Acknowledge(myAcknowledgementNumber);
+      }
+
+      //State ESTABLISHED. Received PSH and ACK flag.
+      //The PSH and ACK flags must always be set in a TCP segment to be transmitted containing data.
+      //NOTE: Enters here after proccing regular ACK.
+      if ((tcpHeader->flags & 0x18) == 0x18) {
+        aConnection->Receive(mySequenceNumber, myData + TCP::tcpHeaderLength, myLength - TCP::tcpHeaderLength);
+      }
+
     }
 }
 
 void TCPInPacket::answer(byte* theData, udword theLength) {
-
+  myFrame->answer(theData, theLength);
 }
 
 uword TCPInPacket::headerOffset() {
