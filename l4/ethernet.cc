@@ -366,7 +366,7 @@ Ethernet::decodeReceivedPacket()
     memcpy(wrappedPacket, data1, length1);
     memcpy((wrappedPacket + length1), data2, length2);
     // STOFF: Create an EternetInPacket
-    cout << "got a wrapped packet" << endl;
+    //cout << "got a wrapped packet" << endl;
     ethernetInPacket = new EthernetInPacket(wrappedPacket, length1 + length2, 0);
   }
   // STOFF: Create and schedule an EthernetJob to decode the EthernetInPacket
@@ -448,7 +448,7 @@ Ethernet::transmittPacket(byte *theData, udword theLength) {
       theLength = (udword)(minPacketLength + ethernetHeaderLength + crcLength); // Pad undersized packets
     }
     txPagePointer->endPointer = ((udword) txPagePointer->data + theLength - 1); //Direct the endPointer to the end of the data
-    cout << "Core " << ax_coreleft_total() << endl;
+    //cout << "Core " << ax_coreleft_total() << endl;
   } else {
     trace << "Warped transmission" << endl;
     // STOFF: Copy the two parts into the transmitt buffer, cannot be undersized

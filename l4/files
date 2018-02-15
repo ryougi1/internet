@@ -11,6 +11,7 @@ arp.cc
 ip.cc
 icmp.cc
 ipaddr.cc
+tcp.cc
 
 system/system.c
 system/xprintf.c

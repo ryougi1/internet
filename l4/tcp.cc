@@ -131,46 +131,68 @@ void TCPConnection::Synchronize(udword theSynchronizationNumber) {
 
 //Handle an incoming FIN segment
 void TCPConnection::NetClose() {
-  //TODO:
+  myState->NetClose(this);
 }
 
 //Handle close from application
 void TCPConnection::AppClose() {
-  //TODO:
+  myState->AppClose(this);
 }
 
 //Handle an incoming RST segment, can also be called in other error
 void TCPConnection::Kill() {
-  //TODO:
+  myState->Kill(this);
 }
 
 //Handle incoming data
 void TCPConnection::Receive(udword theSynchronizationNumber,
                             byte* theData,
                             udword theLength) {
-  //TODO:
+  myState->Receive(this, theSynchronizationNumber, theData, theLength);
 }
 
 //Handle incoming acknowledgement
 void TCPConnection::Acknowledge(udword theAcknowledgementNumber) {
-  //TODO:
+  myState->Acknowledge(this, theAcknowledgementNumber);
 }
 
 //Send outgoing data
 void TCPConnection::Send(byte* theData, udword theLength) {
   myTCPSender->sendData(theData, theLength);
 }
+
 //----------------------------------------------------------------------------
 // TCPState contains dummies for all the operations, only the interesting ones
 // gets overloaded by the various sub classes.
+void TCPState::Synchronize(TCPConnection* theConnection, udword theSynchronizationNumber) {
 
-//TODO Add dummies
+}
+void TCPState::NetClose(TCPConnection* theConnection) {
 
+}
+void TCPState::Appclose(TCPConnection* theConnection) {
+
+}
 void TCPState::Kill(TCPConnection* theConnection) {
   trace << "TCPState::Kill" << endl;
   TCP::instance().deleteConnection(theConnection);
 }
+void TCPState::Receive(TCPConnection* theConnection,
+                      udword theSynchronizationNumber,
+                      byte* theData,
+                      udword theLength)
+{
 
+}
+void TCPState::Acknowledge(TCPConnection* theConnection, udword theAcknowledgementNumber) {
+
+}
+void TCPState::Send(TCPConnection* theConnection,
+                    byte* theData,
+                    udword theLength)
+{
+
+}
 //----------------------------------------------------------------------------
 //
 
@@ -204,6 +226,9 @@ void ListenState::Synchronize(TCPConnection* theConnection,
      theConnection->sendNext += 1;
      // Change state
      theConnection->myState = SynRecvdState::instance();
+
+     //TODO: Send SYN, ACK
+
      break;
    default:
      trace << "send RST..." << endl;
@@ -227,10 +252,10 @@ After LISTEN state, where we receive a (SYN) and sent a (SYN, ACK).
 Expect to get (ACK) on our (SYN, ACK) .
 */
 void SynRecvdState::Acknowledge(TCPConnection* theConnection, udword theAcknowledgementNumber) {
-  //TODO:
-  //Check ACK nr receiveNext
-  //Update sentUnAcked
-  //Change connection state to ESTABLISHED instance
+  if (theAcknowledgementNumber == receiveNext) {
+    sentUnAcked = theAcknowledgementNumber;
+    theConnection->myState = EstablishedState::instance();
+  }
 }
 
 //----------------------------------------------------------------------------
@@ -349,44 +374,58 @@ void TCPSender::sendFlags(byte theFlags) {
   uword pseudosum = aPseudoHeader->checksum();
   delete aPseudoHeader;
 
-  // TODO: Create the TCP segment.
-  //TCPHeader replyHeader = (TCPHeader *) anAnswer;
-  //Set source port
-  //Set dest port
-  //Set seq nr
-  //Set ack nr
-  //Set header length
-  //Set flags
-  //Set window size
-  //Set checksum = 0 to prep
-  //Set urgent pointer
+  //Create the TCP segment.
+  TCPHeader replyHeader = (TCPHeader *) anAnswer;
+  replyHeader->sourcePort = HILO(myConnection->myPort); //Set source port
+  replyHeader->destinationPort = HILO(myConnection->hisPort); //Set dest port
+  replyHeader->sequenceNumber = LHILO(myConnection->sendNext); //Set seq nr
+  replyHeader->acknowledgementNumber = LHILO(myConnection->receiveNext); //Set ack nr
+  replyHeader->headerLength = 0x05 << 12; //Set header length, since only four bits, left shift.
+  replyHeader->flags = theFlags;//Set flags
+  replyHeader->windowSize = HILO(myConnection->receiveWindow); //Set window size
+  replyHeader->checksum = 0; //Set checksum = 0 to prep
+  replyHeader->urgentPointer = 0; //Set urgent pointer
 
   // Calculate the final checksum.
-  aTCPHeader->checksum = calculateChecksum(anAnswer,
+  replyHeader->checksum = calculateChecksum(anAnswer,
                                            totalSegmentLength,
                                            pseudosum);
   // Send the TCP segment.
-  myAnswerChain->answer(anAnswer,
-                        totalSegmentLength);
+  myAnswerChain->answer(anAnswer, totalSegmentLength);
   // Deallocate the dynamic memory
   delete anAnswer;
 }
 
 //Send a data segment. PSH and ACK flags are set
 void TCPSender::sendData(byte* theData, udword theLength) {
-  //TODO:
-  // Total length
-  // byte vector as above
-  // Calculate the pseudo header checksum
+  uword totalSegmentLength = TCP::tcpHeaderLength + theLength;
+  byte* anAnswer = new byte[totalSegmentLength];
 
-  //Create header and set header fields as above
+  TCPPseudoHeader* aPseudoHeader =
+    new TCPPseudoHeader(myConnection->hisAddress,
+                        totalSegmentLength);
+  uword pseudosum = aPseudoHeader->checksum();
+  delete aPseudoHeader;
 
-  // Calculate the final checksum
+  TCPHeader replyHeader = (TCPHeader *) anAnswer;
+  replyHeader->sourcePort = HILO(myConnection->myPort); //Set source port
+  replyHeader->destinationPort = HILO(myConnection->hisPort); //Set dest port
+  replyHeader->sequenceNumber = LHILO(myConnection->sendNext); //Set seq nr
+  replyHeader->acknowledgementNumber = LHILO(myConnection->receiveNext); //Set ack nr
+  replyHeader->headerLength = 0x05 << 12; //Set header length, since only 4 bits, left shift
+  replyHeader->flags = 0x18; //Set flags, should be PSH and ACK since sending data
+  replyHeader->windowSize = HILO(myConnection->receiveWindow); //Set window size
+  replyHeader->checksum = 0; //Set checksum = 0 to prep
+  replyHeader->urgentPointer = 0; //Set urgent pointer
 
-  //Send the TCP segment
+  memcpy(anAnswer + TCP::tcpHeaderLength, theData, theLength); //TODO: Maybe not the best
 
-  //Deallocate the dynamic memory
+  replyHeader->checksum = calculateChecksum(anAnswer,
+                                           totalSegmentLength,
+                                           pseudosum);
 
+  myAnswerChain->answer(anAnswer, totalSegmentLength);
+  delete anAnswer;
 }
 
 
@@ -422,7 +461,7 @@ void TCPInPacket::decode() {
                                             myDestinationPort,
                                             this);
       if ((tcpHeader->flags & 0x02) != 0) {
-        // State LISTEN. Received a SYN flag.
+        // State LISTEN. Received a SYN flag. Will go to SynRecvdState (and send ACK?).
         aConnection->Synchronize(mySequenceNumber);
       } else {
         // State LISTEN. No SYN flag. Impossible to continue.
