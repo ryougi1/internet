@@ -23,16 +23,27 @@ extern "C"
 /****************** IP DEFINITION SECTION *************************/
 uword seqNum = 0; //2 bytes identification
 
+IP::IP() {
+  myIPAddress = &IPAddress(130,235,200,115); //TODO:Unsure if correct  
+}
+
+IP& IP::instance() {
+  static IP myInstance;
+  return myInstance;
+}
+
+const IPAddress& IP::myAddress() {
+  return *myIPAddress;
+}
+
 IPInPacket::IPInPacket(byte*           theData,
                          udword          theLength,
 						             InPacket*       theFrame):
 InPacket(theData, theLength, theFrame) {
 }
 
-//----------------------------------------------------------------------------
-//
-void
-IPInPacket::decode() {
+
+void IPInPacket::decode() {
   IPHeader* ipHeader = (IPHeader *) myData;
   IPAddress myIp(130,235,200,115); //Needed for the if statement
   /**
@@ -78,7 +89,7 @@ IPInPacket::decode() {
           delete icmp;
         }
         if (ipHeader->protocol == 6) { //Assigned internet protocol number for TCP (RFC790)
-          TCPInPacket* tcp = new TCPInPacket(myData + IP::ipHeaderLength, realTotalLength - IP::ipHeaderLength, this, &mySourceIPAddress);
+          TCPInPacket* tcp = new TCPInPacket(myData + IP::ipHeaderLength, realTotalLength - IP::ipHeaderLength, this, mySourceIPAddress);
           //TCPInPacket tcp(myData + IP::ipHeaderLength, realTotalLength - IP::ipHeaderLength, this, &mySourceIPAddress);
           tcp->decode();
           delete tcp;
@@ -88,8 +99,7 @@ IPInPacket::decode() {
 
 //----------------------------------------------------------------------------
 //
-void
-IPInPacket::answer(byte *theData, udword theLength) {
+void IPInPacket::answer(byte *theData, udword theLength) {
   IPHeader* replyHeader = new IPHeader();
   /**
   Set the version field to 4.
@@ -127,8 +137,7 @@ IPInPacket::answer(byte *theData, udword theLength) {
   delete replyHeader;
 }
 
-uword
-IPInPacket::headerOffset() {
+uword IPInPacket::headerOffset() {
   return myFrame->headerOffset() + IP::ipHeaderLength;
 }
 

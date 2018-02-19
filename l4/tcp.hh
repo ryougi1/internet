@@ -1,9 +1,9 @@
 /*!***************************************************************************
 *!
 *! FILE NAME  : tcp.hh
-*! 
+*!
 *! DESCRIPTION: TCP, Transport control protocol
-*! 
+*!
 *!***************************************************************************/
 
 #ifndef tcp_hh
@@ -14,6 +14,7 @@
 #include "inpacket.hh"
 #include "ipaddr.hh"
 #include "queue.hh"
+#include "ip.hh"
 
 /****************** CLASS DEFINITION SECTION ********************************/
 
@@ -39,7 +40,7 @@ class TCP
                                uword      theSourcePort,
                                uword      theDestinationPort);
   // Find a connection in the connection list
-  
+
   TCPConnection* createConnection(IPAddress& theSourceAddress,
                                   uword      theSourcePort,
                                   uword      theDestinationPort,
@@ -48,7 +49,7 @@ class TCP
 
   void deleteConnection(TCPConnection*);
   // Removes a connection from the list and deletes it
-  
+
   enum { tcpHeaderLength = 20 };
 
  private:
@@ -63,7 +64,7 @@ class TCP
 *%
 *% BASE CLASSES : None
 *%
-*% CLASS TYPE   : 
+*% CLASS TYPE   :
 *%
 *% DESCRIPTION  : Holds the state of one TCP connection.
 *%
@@ -80,12 +81,12 @@ class TCPConnection
                 uword      theDestinationPort,
                 InPacket*  theCreator);
   ~TCPConnection();
-  
+
   bool tryConnection(IPAddress& theSourceAddress,
                      uword      theSourcePort,
                      uword      theDestinationPort);
   // Returns true if this connection matches the arguments
-  
+
   void Synchronize(udword theSynchronizationNumber);
   // Handle an incoming SYN segment
   void NetClose();
@@ -116,15 +117,15 @@ class TCPConnection
   uword      myPort;
   // My port
 
-  udword     receiveNext; 
+  udword     receiveNext;
   // next expected sequence number from other host
   uword      receiveWindow;
   // Number of bytes it is posible to send without getting an ACK
 
-  udword     sendNext;    
+  udword     sendNext;
   // next sequence number to send
   udword     sentUnAcked;
-  // Data has been acknowledged up to this sequence number. What remains up to 
+  // Data has been acknowledged up to this sequence number. What remains up to
   // sendNext is sent but not yet acked by the other host.
 
   TCPSender* myTCPSender;
@@ -176,7 +177,7 @@ class TCPState
 *%
 *% BASE CLASSES : None
 *%
-*% CLASS TYPE   : 
+*% CLASS TYPE   :
 *%
 *% DESCRIPTION  : Handle listen state.
 *%
@@ -187,11 +188,11 @@ class ListenState : public TCPState
 {
  public:
   static ListenState* instance();
-  
+
   void Synchronize(TCPConnection* theConnection,
                    udword theSynchronizationNumber);
   // Handle an incoming SYN segment
-  
+
  protected:
   ListenState() {}
 };
@@ -202,7 +203,7 @@ class ListenState : public TCPState
 *%
 *% BASE CLASSES : None
 *%
-*% CLASS TYPE   : 
+*% CLASS TYPE   :
 *%
 *% DESCRIPTION  : Handle SYN received state.
 *%
@@ -217,7 +218,7 @@ class SynRecvdState : public TCPState
   void Acknowledge(TCPConnection* theConnection,
                    udword theAcknowledgementNumber);
   // Handle incoming Acknowledgement
-  
+
  protected:
   SynRecvdState() {}
 };
@@ -228,7 +229,7 @@ class SynRecvdState : public TCPState
 *%
 *% BASE CLASSES : None
 *%
-*% CLASS TYPE   : 
+*% CLASS TYPE   :
 *%
 *% DESCRIPTION  : Handle established state.
 *%
@@ -239,7 +240,7 @@ class EstablishedState : public TCPState
 {
  public:
   static EstablishedState* instance();
-  
+
   void NetClose(TCPConnection* theConnection);
   // Handle an incoming FIN segment
   void Receive(TCPConnection* theConnection,
@@ -265,7 +266,7 @@ class EstablishedState : public TCPState
 *%
 *% BASE CLASSES : None
 *%
-*% CLASS TYPE   : 
+*% CLASS TYPE   :
 *%
 *% DESCRIPTION  : Handle established state.
 *%
@@ -290,7 +291,7 @@ class CloseWaitState : public TCPState
 *%
 *% BASE CLASSES : None
 *%
-*% CLASS TYPE   : 
+*% CLASS TYPE   :
 *%
 *% DESCRIPTION  : Handle established state.
 *%
@@ -301,7 +302,7 @@ class LastAckState : public TCPState
 {
  public:
   static LastAckState* instance();
-  
+
   void Acknowledge(TCPConnection* theConnection,
                    udword theAcknowledgementNumber);
   // Handle incoming Acknowledgement
@@ -314,9 +315,9 @@ class LastAckState : public TCPState
 *%
 *% CLASS NAME   : TCPSender
 *%
-*% BASE CLASSES : 
+*% BASE CLASSES :
 *%
-*% CLASS TYPE   : 
+*% CLASS TYPE   :
 *%
 *% DESCRIPTION  : Send a TCP segment.
 *%
@@ -347,7 +348,7 @@ class TCPSender
 *%
 *% BASE CLASSES : InPacket
 *%
-*% CLASS TYPE   : 
+*% CLASS TYPE   :
 *%
 *% DESCRIPTION  : Decode a TCP packet.
 *%
@@ -381,7 +382,7 @@ class TCPInPacket : public InPacket
 *%
 *% BASE CLASSES : none
 *%
-*% CLASS TYPE   : 
+*% CLASS TYPE   :
 *%
 *% DESCRIPTION  : Describes the fields of a TCP packet.
 *%
@@ -411,7 +412,7 @@ class TCPHeader
 *%
 *% BASE CLASSES : none
 *%
-*% CLASS TYPE   : 
+*% CLASS TYPE   :
 *%
 *% DESCRIPTION  : The TCP pseudo header used for checksum calculation.
 *%
@@ -423,7 +424,7 @@ class TCPPseudoHeader
  public:
   TCPPseudoHeader(IPAddress& theDestination, uword theLength);
   uword checksum();
-  
+
  protected:
   IPAddress sourceIPAddress;
   IPAddress destinationIPAddress;
@@ -434,4 +435,3 @@ class TCPPseudoHeader
 
 #endif
 /****************** END OF FILE tcp.hh *************************************/
-

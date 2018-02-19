@@ -14,6 +14,7 @@
 #include "inpacket.hh"
 #include "ethernet.hh"
 #include "ipaddr.hh"
+#include "tcp.hh"
 
 /****************** CLASS DEFINITION SECTION ********************************/
 

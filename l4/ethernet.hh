@@ -198,7 +198,6 @@ class EthernetJob : public Job
  public:
   EthernetJob(EthernetInPacket* thePacket);
   // Constructor: Initiate myPacket
-  InPacket* copyAnswerChain();
 
  private:
   virtual ~EthernetJob() {}
@@ -238,6 +237,7 @@ class EthernetInPacket : public InPacket
   uword headerOffset();
   // Return the length of the ethernet header,
   // see Ethernet::ethernetHeaderLength
+  InPacket* copyAnswerChain();
 
  private:
   EthernetAddress myDestinationAddress;

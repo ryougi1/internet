@@ -166,7 +166,7 @@ void TCPState::Synchronize(TCPConnection* theConnection, udword theSynchronizati
 
 }
 void TCPState::NetClose(TCPConnection* theConnection) {}
-void TCPState::Appclose(TCPConnection* theConnection) {}
+void TCPState::AppClose(TCPConnection* theConnection) {}
 void TCPState::Kill(TCPConnection* theConnection) {
   trace << "TCPState::Kill" << endl;
   TCP::instance().deleteConnection(theConnection);
@@ -235,8 +235,8 @@ After LISTEN state, where we receive a (SYN) and sent a (SYN, ACK).
 Expect to get (ACK) on our (SYN, ACK) .
 */
 void SynRecvdState::Acknowledge(TCPConnection* theConnection, udword theAcknowledgementNumber) {
-  if (theAcknowledgementNumber == receiveNext) {
-    sentUnAcked = theAcknowledgementNumber; //Update sentUnAcked to last acked segment
+  if (theAcknowledgementNumber == theConnection->receiveNext) {
+    theConnection->sentUnAcked = theAcknowledgementNumber; //Update sentUnAcked to last acked segment
     theConnection->myState = EstablishedState::instance(); //Change state to Established
   }
 }
@@ -368,7 +368,7 @@ void TCPSender::sendFlags(byte theFlags) {
   delete aPseudoHeader;
 
   //Create the TCP segment.
-  TCPHeader replyHeader = (TCPHeader *) anAnswer;
+  TCPHeader* replyHeader = (TCPHeader *) anAnswer;
   replyHeader->sourcePort = HILO(myConnection->myPort); //Set source port
   replyHeader->destinationPort = HILO(myConnection->hisPort); //Set dest port
   replyHeader->sequenceNumber = LHILO(myConnection->sendNext); //Set seq nr
@@ -400,7 +400,7 @@ void TCPSender::sendData(byte* theData, udword theLength) {
   uword pseudosum = aPseudoHeader->checksum();
   delete aPseudoHeader;
 
-  TCPHeader replyHeader = (TCPHeader *) anAnswer;
+  TCPHeader* replyHeader = (TCPHeader *) anAnswer;
   replyHeader->sourcePort = HILO(myConnection->myPort); //Set source port
   replyHeader->destinationPort = HILO(myConnection->hisPort); //Set dest port
   replyHeader->sequenceNumber = LHILO(myConnection->sendNext); //Set seq nr
