@@ -112,8 +112,6 @@ TCPConnection::~TCPConnection()
   delete myTCPSender;
 }
 
-//----------------------------------------------------------------------------
-//
 bool TCPConnection::tryConnection(IPAddress& theSourceAddress,
                              uword      theSourcePort,
                              uword      theDestinationPort)
@@ -167,12 +165,8 @@ void TCPConnection::Send(byte* theData, udword theLength) {
 void TCPState::Synchronize(TCPConnection* theConnection, udword theSynchronizationNumber) {
 
 }
-void TCPState::NetClose(TCPConnection* theConnection) {
-
-}
-void TCPState::Appclose(TCPConnection* theConnection) {
-
-}
+void TCPState::NetClose(TCPConnection* theConnection) {}
+void TCPState::Appclose(TCPConnection* theConnection) {}
 void TCPState::Kill(TCPConnection* theConnection) {
   trace << "TCPState::Kill" << endl;
   TCP::instance().deleteConnection(theConnection);
@@ -181,18 +175,13 @@ void TCPState::Receive(TCPConnection* theConnection,
                       udword theSynchronizationNumber,
                       byte* theData,
                       udword theLength)
-{
-
-}
-void TCPState::Acknowledge(TCPConnection* theConnection, udword theAcknowledgementNumber) {
-
-}
+{}
+void TCPState::Acknowledge(TCPConnection* theConnection, udword theAcknowledgementNumber) {}
 void TCPState::Send(TCPConnection* theConnection,
                     byte* theData,
                     udword theLength)
-{
+{}
 
-}
 //----------------------------------------------------------------------------
 //
 
@@ -204,7 +193,7 @@ ListenState* ListenState::instance() {
 // Handle an incoming SYN segment
 void ListenState::Synchronize(TCPConnection* theConnection,
                               udword theSynchronizationNumber) {
-  //TODO:
+
   switch (theConnection->myPort) {
    case 7:
      trace << "got SYN on ECHO port" << endl;
@@ -212,23 +201,17 @@ void ListenState::Synchronize(TCPConnection* theConnection,
      The next expected sequence number from the other host is
      denoted as receiveNext
      */
-     theConnection->receiveNext = theSynchronizationNumber + 1;
+     theConnection->receiveNext = theSynchronizationNumber + 1; //Increment next expected seq nr
      theConnection->receiveWindow = 8*1024;
-     theConnection->sendNext = get_time();
-     // Next reply to be sent.
+     theConnection->sendNext = get_time(); //Next seq nr to be sent
+
      /**The variable sentUnAcked contains the latest sequence number an
      acknowledgement has been received for.
      */
-     theConnection->sentUnAcked = theConnection->sendNext;
-     // Send a segment with the SYN and ACK flags set.
-     theConnection->myTCPSender->sendFlags(0x12);
-     // Prepare for the next send operation.
-     theConnection->sendNext += 1;
-     // Change state
-     theConnection->myState = SynRecvdState::instance();
-
-     //TODO: Send SYN, ACK
-
+     theConnection->sentUnAcked = theConnection->sendNext; //Initiate sentUnacked as initial seq nr - 1 (so it is technically un-acked)
+     theConnection->myTCPSender->sendFlags(0x12); // Send a segment with the SYN and ACK flags set.
+     theConnection->sendNext += 1; // Prepare for the next send operation.
+     theConnection->myState = SynRecvdState::instance();  // Change state
      break;
    default:
      trace << "send RST..." << endl;
@@ -253,8 +236,8 @@ Expect to get (ACK) on our (SYN, ACK) .
 */
 void SynRecvdState::Acknowledge(TCPConnection* theConnection, udword theAcknowledgementNumber) {
   if (theAcknowledgementNumber == receiveNext) {
-    sentUnAcked = theAcknowledgementNumber;
-    theConnection->myState = EstablishedState::instance();
+    sentUnAcked = theAcknowledgementNumber; //Update sentUnAcked to last acked segment
+    theConnection->myState = EstablishedState::instance(); //Change state to Established
   }
 }
 
@@ -268,18 +251,19 @@ EstablishedState* EstablishedState::instance() {
 //Handle an incoming FIN segment
 void EstablishedState::NetClose(TCPConnection* theConnection) {
   trace << "EstablishedState::NetClose" << endl;
-
-  // Update connection variables and send an ACK
+  /** Update connection variables and send an ACK
+  We want to increment ack nr, but keep our seq nr the same.
+  Since ack nr remains the same as in the prior packet just +1
+  */
+  theConnection->receiveNext += 1;
+  theConnection->myTCPSender->sendFlags(0x10); //Half close complete
 
   // Go to NetClose wait state, inform application
   theConnection->myState = CloseWaitState::instance();
-
   // Normally the application would be notified next and nothing
   // happen until the application calls appClose on the connection.
   // Since we don't have an application we simply call appClose here instead.
-
-  // Simulate application Close...
-  theConnection->AppClose();
+  theConnection->AppClose(); // Simulate application Close...
 }
 
 //Handle incoming data
@@ -288,32 +272,26 @@ void EstablishedState::Receive(TCPConnection* theConnection,
                           byte*  theData,
                           udword theLength)
 {
-  trace << "EstablishedState::Receive" << endl;
-
   // Delayed ACK is not implemented, simply acknowledge the data
   // by sending an ACK segment, then echo the data using Send.
-  //TODO:
-  //Check that seq nr matches receiveNext
-  //update receivenext
-  //Call Send to echo.
+  trace << "EstablishedState::Receive" << endl;
+  if (theSynchronizationNumber == theConnection->receiveNext) {
+    theConnection->receiveNext += theLength; //Update next expected seq nr
+    Send(theConnection, theData, theLength); //Call EstablishedState::Send
+  }
 }
 
 //Handle incoming Acknowledgement
 void EstablishedState::Acknowledge(TCPConnection* theConnection, udword theAcknowledgementNumber) {
-  //TODO:
-  /**The variable sentUnAcked contains the latest sequence number an
-  acknowledgement has been received for.
-  */
-  //update sentUnAcked
+  theConnection->sentUnAcked = theAcknowledgementNumber;
 }
 
 void EstablishedState::Send(TCPConnection* theConnection,
           byte*  theData,
           udword theLength)
 {
-  //TODO:
-  //Call connection send.
-  //Update sequence number sendNext
+  theConnection->Send(theData, theLength); //Echo the received data
+  theConnection->sendNext += theLength; // Update sequence number
 }
 
 
@@ -326,7 +304,13 @@ CloseWaitState* CloseWaitState::instance() {
 
 //Handle close from application
 void CloseWaitState::AppClose(TCPConnection* theConnection) {
-  //TODO:
+  /**
+  Close from application is manually called in in EstablishedState::NetClose()
+  Here we simply want to send a FIN flag to complete our half of the half close.
+  Then we change state to LastAckState.
+  */
+  theConnection->myTCPSender->sendFlags(0x01);
+  theConnection->myState = LastAckState::instance();
 }
 
 //----------------------------------------------------------------------------
@@ -338,7 +322,16 @@ LastAckState* LastAckState::instance() {
 
 //Handle incoming Acknowledgement
 void LastAckState::Acknowledge(TCPConnection* theConnection, udword theAcknowledgementNumber) {
-  //TODO:
+  /**
+  Final stage of the channel tear-down. We acked their FIN in
+  EstablishedState::NetClose(), then we sent our FIN in
+  CloseWaitState::AppClose(), and here we received their final ack.
+  */
+  theConnection->sentUnAcked = theAcknowledgementNumber;
+  //Make sure that their ACK is actually for our FIN and not something else
+  if (theConnection->sendNext + 1 == theAcknowledgementNumber) {
+    theConnection->Kill();
+  }
 }
 
 
@@ -461,7 +454,7 @@ void TCPInPacket::decode() {
                                             myDestinationPort,
                                             this);
       if ((tcpHeader->flags & 0x02) != 0) {
-        // State LISTEN. Received a SYN flag. Will go to SynRecvdState (and send ACK?).
+        // State LISTEN. Received a SYN flag. Will send SYN, ACK and go to SynRecvdState.
         aConnection->Synchronize(mySequenceNumber);
       } else {
         // State LISTEN. No SYN flag. Impossible to continue.
@@ -480,7 +473,7 @@ void TCPInPacket::decode() {
         aConnection->NetClose();
       }
 
-      //State ESTABLISHED. Received ACK flag.
+      //State ESTABLISHED or SynRecvd. Received ACK flag.
       if ((tcpHeader->flags & 0x10) == 0x10) {
         aConnection->Acknowledge(myAcknowledgementNumber);
       }
