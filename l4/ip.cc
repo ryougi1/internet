@@ -24,7 +24,7 @@ extern "C"
 uword seqNum = 0; //2 bytes identification
 
 IP::IP() {
-  myIPAddress = &IPAddress(130,235,200,115); //TODO:Unsure if correct  
+  myIPAddress = new IPAddress(130,235,200,115);
 }
 
 IP& IP::instance() {
