@@ -34,7 +34,7 @@ extern "C"
 //
 TCP::TCP()
 {
-  trace << "TCP created." << endl;
+  //trace << "TCP created." << endl;
 }
 
 //----------------------------------------------------------------------------
@@ -62,12 +62,12 @@ TCPConnection* TCP::getConnection(IPAddress& theSourceAddress,
   }
   if (!connectionFound)
   {
-    trace << "Connection not found!" << endl;
+    //trace << "Connection not found!" << endl;
     aConnection = NULL;
   }
   else
   {
-    trace << "Found connection in queue" << endl;
+    //trace << "Found connection in queue" << endl;
   }
   return aConnection;
 }
@@ -101,14 +101,14 @@ TCPConnection::TCPConnection(IPAddress& theSourceAddress,
         hisPort(theSourcePort),
         myPort(theDestinationPort)
 {
-  trace << "TCP connection created" << endl;
+  //trace << "TCP connection created" << endl;
   myTCPSender = new TCPSender(this, theCreator),
   myState = ListenState::instance();
 }
 
 TCPConnection::~TCPConnection()
 {
-  trace << "TCP connection destroyed" << endl;
+  //trace << "TCP connection destroyed" << endl;
   delete myTCPSender;
 }
 
@@ -168,7 +168,7 @@ void TCPState::Synchronize(TCPConnection* theConnection, udword theSynchronizati
 void TCPState::NetClose(TCPConnection* theConnection) {}
 void TCPState::AppClose(TCPConnection* theConnection) {}
 void TCPState::Kill(TCPConnection* theConnection) {
-  trace << "TCPState::Kill" << endl;
+  //trace << "TCPState::Kill" << endl;
   TCP::instance().deleteConnection(theConnection);
 }
 void TCPState::Receive(TCPConnection* theConnection,
@@ -196,7 +196,7 @@ void ListenState::Synchronize(TCPConnection* theConnection,
 
   switch (theConnection->myPort) {
    case 7:
-     trace << "got SYN on ECHO port" << endl;
+     //trace << "got SYN on ECHO port" << endl;
      /**
      The next expected sequence number from the other host is
      denoted as receiveNext
@@ -214,7 +214,7 @@ void ListenState::Synchronize(TCPConnection* theConnection,
      theConnection->myState = SynRecvdState::instance();  // Change state
      break;
    default:
-     trace << "send RST..." << endl;
+     //trace << "send RST..." << endl;
      theConnection->sendNext = 0;
      // Send a segment with the RST flag set.
      theConnection->myTCPSender->sendFlags(0x04);
@@ -235,10 +235,9 @@ After LISTEN state, where we receive a (SYN) and sent a (SYN, ACK).
 Expect to get (ACK) on our (SYN, ACK) .
 */
 void SynRecvdState::Acknowledge(TCPConnection* theConnection, udword theAcknowledgementNumber) {
-  if (theAcknowledgementNumber == theConnection->receiveNext) {
+    //trace << "SynRecvdState::Acknowledge" << endl;
     theConnection->sentUnAcked = theAcknowledgementNumber; //Update sentUnAcked to last acked segment
     theConnection->myState = EstablishedState::instance(); //Change state to Established
-  }
 }
 
 //----------------------------------------------------------------------------
@@ -250,7 +249,7 @@ EstablishedState* EstablishedState::instance() {
 
 //Handle an incoming FIN segment
 void EstablishedState::NetClose(TCPConnection* theConnection) {
-  trace << "EstablishedState::NetClose" << endl;
+  //trace << "EstablishedState::NetClose" << endl;
   /** Update connection variables and send an ACK
   We want to increment ack nr, but keep our seq nr the same.
   Since ack nr remains the same as in the prior packet just +1
@@ -274,7 +273,7 @@ void EstablishedState::Receive(TCPConnection* theConnection,
 {
   // Delayed ACK is not implemented, simply acknowledge the data
   // by sending an ACK segment, then echo the data using Send.
-  trace << "EstablishedState::Receive" << endl;
+  //trace << "EstablishedState::Receive" << endl;
   if (theSynchronizationNumber == theConnection->receiveNext) {
     theConnection->receiveNext += theLength; //Update next expected seq nr
     Send(theConnection, theData, theLength); //Call EstablishedState::Send
@@ -309,6 +308,7 @@ void CloseWaitState::AppClose(TCPConnection* theConnection) {
   Here we simply want to send a FIN flag to complete our half of the half close.
   Then we change state to LastAckState.
   */
+  //trace << "CloseWaitState::AppClose" << endl;
   theConnection->myTCPSender->sendFlags(0x01);
   theConnection->myState = LastAckState::instance();
 }
@@ -330,6 +330,7 @@ void LastAckState::Acknowledge(TCPConnection* theConnection, udword theAcknowled
   theConnection->sentUnAcked = theAcknowledgementNumber;
   //Make sure that their ACK is actually for our FIN and not something else
   if (theConnection->sendNext + 1 == theAcknowledgementNumber) {
+    //trace << "LastAckState::Acknowledge" << endl;
     theConnection->Kill();
   }
 }
@@ -373,7 +374,7 @@ void TCPSender::sendFlags(byte theFlags) {
   replyHeader->destinationPort = HILO(myConnection->hisPort); //Set dest port
   replyHeader->sequenceNumber = LHILO(myConnection->sendNext); //Set seq nr
   replyHeader->acknowledgementNumber = LHILO(myConnection->receiveNext); //Set ack nr
-  replyHeader->headerLength = 0x05 << 12; //Set header length, since only four bits, left shift.
+  replyHeader->headerLength = 0x05 << 4; //Set header length, since only four bits, left shift.
   replyHeader->flags = theFlags;//Set flags
   replyHeader->windowSize = HILO(myConnection->receiveWindow); //Set window size
   replyHeader->checksum = 0; //Set checksum = 0 to prep
@@ -405,13 +406,13 @@ void TCPSender::sendData(byte* theData, udword theLength) {
   replyHeader->destinationPort = HILO(myConnection->hisPort); //Set dest port
   replyHeader->sequenceNumber = LHILO(myConnection->sendNext); //Set seq nr
   replyHeader->acknowledgementNumber = LHILO(myConnection->receiveNext); //Set ack nr
-  replyHeader->headerLength = 0x05 << 12; //Set header length, since only 4 bits, left shift
+  replyHeader->headerLength = 0x05 << 4; //Set header length, since only 4 bits, left shift
   replyHeader->flags = 0x18; //Set flags, should be PSH and ACK since sending data
   replyHeader->windowSize = HILO(myConnection->receiveWindow); //Set window size
   replyHeader->checksum = 0; //Set checksum = 0 to prep
   replyHeader->urgentPointer = 0; //Set urgent pointer
 
-  memcpy(anAnswer + TCP::tcpHeaderLength, theData, theLength); //TODO: Maybe not the best
+  memcpy(anAnswer + TCP::tcpHeaderLength, theData, theLength);
 
   replyHeader->checksum = calculateChecksum(anAnswer,
                                            totalSegmentLength,
