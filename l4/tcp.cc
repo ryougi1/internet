@@ -281,8 +281,8 @@ void EstablishedState::Receive(TCPConnection* theConnection,
   //trace << "EstablishedState::Receive" << endl;
   if (theSynchronizationNumber == theConnection->receiveNext) {
     theConnection->receiveNext += theLength; //Update next expected seq nr
-    theConnection->myTCPSender->sendFlags(0x10); //TODO: MAYBE?
-    Send(theConnection, theData, theLength); //Call EstablishedState::Send
+    theConnection->myTCPSender->sendFlags(0x10); //TODO: MAYBE send ACK?
+    Send(theConnection, theData, theLength); //Call EstablishedState::Send to echo
   }
 }
 
@@ -310,7 +310,7 @@ CloseWaitState* CloseWaitState::instance() {
 //Handle close from application
 void CloseWaitState::AppClose(TCPConnection* theConnection) {
   /**
-  Close from application is manually called in in EstablishedState::NetClose()
+  AppClose from application is manually called in in EstablishedState::NetClose()
   Here we simply want to send a FIN flag to complete our half of the half close.
   Then we change state to LastAckState.
   */
@@ -381,7 +381,7 @@ void TCPSender::sendFlags(byte theFlags) {
   replyHeader->sequenceNumber = LHILO(myConnection->sendNext); //Set seq nr
   replyHeader->acknowledgementNumber = LHILO(myConnection->receiveNext); //Set ack nr
   replyHeader->headerLength = 0x50; //Set header length, since only four bits, left shift.
-  replyHeader->flags = theFlags;//Set flags
+  replyHeader->flags = theFlags; //Set flags
   replyHeader->windowSize = HILO(myConnection->receiveWindow); //Set window size
   replyHeader->checksum = 0; //Set checksum = 0 to prep
   replyHeader->urgentPointer = 0; //Set urgent pointer
@@ -418,8 +418,9 @@ void TCPSender::sendData(byte* theData, udword theLength) {
   replyHeader->checksum = 0; //Set checksum = 0 to prep
   replyHeader->urgentPointer = 0; //Set urgent pointer
 
+  //Copy the echo data in after the header
   memcpy(anAnswer + TCP::tcpHeaderLength, theData, theLength);
-
+  //Checksum is calculated over pseudoheader and the entire segment including data
   replyHeader->checksum = calculateChecksum(anAnswer,
                                            totalSegmentLength,
                                            pseudosum);
@@ -489,6 +490,7 @@ void TCPInPacket::decode() {
       //The PSH and ACK flags must always be set in a TCP segment to be transmitted containing data.
       //NOTE: Enters here after proccing regular ACK.
       if ((tcpHeader->flags & 0x18) == 0x18) {
+        //Strip the header
         aConnection->Receive(mySequenceNumber, myData + TCP::tcpHeaderLength, myLength - TCP::tcpHeaderLength);
       }
 
