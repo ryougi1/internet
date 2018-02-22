@@ -234,14 +234,14 @@ After LISTEN state, where we receive a (SYN) and sent a (SYN, ACK).
 Expect to get (ACK) on our (SYN, ACK) .
 */
 void SynRecvdState::Acknowledge(TCPConnection* theConnection, udword theAcknowledgementNumber) {
-    //trace << "SynRecvdState::Acknowledge" << endl;
-    if(theAcknowledgementNumber == theConnection->sendNext) {
+    trace << "SynRecvdState::Acknowledge" << endl;
+    //if(theAcknowledgementNumber == theConnection->sendNext) {
       /** Since sendNext was incremented in ListenState,
       the ACK should be for our next segment
       */
       theConnection->sentUnAcked = theAcknowledgementNumber; //Update sentUnAcked to last acked segment
       theConnection->myState = EstablishedState::instance(); //Change state to Established
-    }
+    //}
 
 }
 
@@ -254,7 +254,7 @@ EstablishedState* EstablishedState::instance() {
 
 //Handle an incoming FIN segment
 void EstablishedState::NetClose(TCPConnection* theConnection) {
-  //trace << "EstablishedState::NetClose" << endl;
+  trace << "EstablishedState::NetClose" << endl;
   /** Update connection variables and send an ACK
   We want to increment ack nr, but keep our seq nr the same.
   Since ack nr remains the same as in the prior packet just +1
@@ -278,10 +278,9 @@ void EstablishedState::Receive(TCPConnection* theConnection,
 {
   // Delayed ACK is not implemented, simply acknowledge the data
   // by sending an ACK segment, then echo the data using Send.
-  //trace << "EstablishedState::Receive" << endl;
+  trace << "EstablishedState::Receive" << endl;
   if (theSynchronizationNumber == theConnection->receiveNext) {
     theConnection->receiveNext += theLength; //Update next expected seq nr
-    theConnection->myTCPSender->sendFlags(0x10); //TODO: MAYBE send ACK?
     Send(theConnection, theData, theLength); //Call EstablishedState::Send to echo
   }
 }
@@ -412,7 +411,7 @@ void TCPSender::sendData(byte* theData, udword theLength) {
   replyHeader->destinationPort = HILO(myConnection->hisPort); //Set dest port
   replyHeader->sequenceNumber = LHILO(myConnection->sendNext); //Set seq nr
   replyHeader->acknowledgementNumber = LHILO(myConnection->receiveNext); //Set ack nr
-  replyHeader->headerLength = 0x50 << 4; //Set header length, since only 4 bits, left shift
+  replyHeader->headerLength = 0x50; //Set header length, since only 4 bits, left shift
   replyHeader->flags = 0x18; //Set flags, should be PSH and ACK since sending data
   replyHeader->windowSize = HILO(myConnection->receiveWindow); //Set window size
   replyHeader->checksum = 0; //Set checksum = 0 to prep
@@ -469,7 +468,7 @@ void TCPInPacket::decode() {
         aConnection->Kill();
       }
     } else {
-      // TODO: Connection was established. Handle all states.
+      //Connection was established. Handle all states.
 
       //State ESTABLISHED. Received RST flag
       if ((tcpHeader->flags & 0x04) == 0x04) {
@@ -507,8 +506,7 @@ uword TCPInPacket::headerOffset() {
 
 //----------------------------------------------------------------------------
 //
-InPacket*
-TCPInPacket::copyAnswerChain() {
+InPacket* TCPInPacket::copyAnswerChain() {
   return myFrame->copyAnswerChain();
 }
 

@@ -278,7 +278,6 @@ Ethernet::getReceiveBuffer()
       data2   = (byte*)rxStartAddress; //Start of the buffer
       length2 = realEndPtr - rxStartAddress; //End of received packet - start of the buffer
     }
-    // cout << "Core " << ax_coreleft_total() << endl;
     return true;
   }
 #ifdef D_ETHER
@@ -448,7 +447,6 @@ Ethernet::transmittPacket(byte *theData, udword theLength) {
       theLength = (udword)(minPacketLength + ethernetHeaderLength + crcLength); // Pad undersized packets
     }
     txPagePointer->endPointer = ((udword) txPagePointer->data + theLength - 1); //Direct the endPointer to the end of the data
-    //cout << "Core " << ax_coreleft_total() << endl;
   } else {
     trace << "Warped transmission" << endl;
     // STOFF: Copy the two parts into the transmitt buffer, cannot be undersized
@@ -458,6 +456,8 @@ Ethernet::transmittPacket(byte *theData, udword theLength) {
     txPagePointer->endPointer = theLength - firstLength - 1;
     //Since wrap around then packet is at least one block large, no need to worry about min size packet.
   }
+
+  //cout << "Core " << ax_coreleft_total() << endl;
 
   /* Now we can tell Etrax to send this packet. Unless it is already      */
   /* busy sending packets. In which case it will send this automatically  */
