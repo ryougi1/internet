@@ -50,6 +50,13 @@ class TCP
   void deleteConnection(TCPConnection*);
   // Removes a connection from the list and deletes it
 
+  bool acceptConnection(uword portNo);
+  // Is true when a connection is accepted on port portNo.
+
+  void connectionEstablished(TCPConnection* theConnection);
+  // Create a new TCPSocket. Register it in TCPConnection.
+  // Create and start a SimpleApplication.
+
   enum { tcpHeaderLength = 20 };
 
  private:
@@ -86,6 +93,10 @@ class TCPConnection
                      uword      theSourcePort,
                      uword      theDestinationPort);
   // Returns true if this connection matches the arguments
+  uword serverPortNumber();
+  // Return myPort.
+  void  registerSocket(TCPSocket* theSocket);
+  // Set mySocket to theSocket.
 
   void Synchronize(udword theSynchronizationNumber);
   // Handle an incoming SYN segment
@@ -116,12 +127,10 @@ class TCPConnection
   // Other hosts port
   uword      myPort;
   // My port
-
   udword     receiveNext;
   // next expected sequence number from other host
   uword      receiveWindow;
   // Number of bytes it is posible to send without getting an ACK
-
   udword     sendNext;
   // next sequence number to send
   udword     sentUnAcked;
@@ -130,6 +139,13 @@ class TCPConnection
 
   TCPSender* myTCPSender;
   TCPState*  myState;
+
+  byte* transmitQueue; // a reference to the data to be sent,
+  udword queueLength; // the number of data to be sent, and
+  udword firstSeq; // the sequence number of the first byte in the queue.
+
+  udword myWindowSize; // contains the offered window size from each segment.
+
 };
 
 /*****************************************************************************
@@ -243,6 +259,9 @@ class EstablishedState : public TCPState
 
   void NetClose(TCPConnection* theConnection);
   // Handle an incoming FIN segment
+  void AppClose(TCPConnection* theConnection);
+  // Handle close from application
+
   void Receive(TCPConnection* theConnection,
                udword theSynchronizationNumber,
                byte*  theData,
@@ -313,6 +332,62 @@ class LastAckState : public TCPState
 
 /*****************************************************************************
 *%
+*% CLASS NAME   : FinWait1State
+*%
+*% BASE CLASSES : None
+*%
+*% CLASS TYPE   :
+*%
+*% DESCRIPTION  : Handle FIN_WAIT_1 state.
+*%
+*% SUBCLASSING  : no.
+*%
+*%***************************************************************************/
+class FinWait1State : public TCPState
+{
+ public:
+  static FinWait1State* instance();
+
+  void Acknowledge(TCPConnection* theConnection,
+                   udword theAcknowledgementNumber);
+  // Handle incoming Acknowledgement
+
+ protected:
+  FinWait1State() {}
+};
+
+/*****************************************************************************
+*%
+*% CLASS NAME   : FinWait2State
+*%
+*% BASE CLASSES : None
+*%
+*% CLASS TYPE   :
+*%
+*% DESCRIPTION  : Handle FIN_WAIT_2 state.
+*%
+*% SUBCLASSING  : no.
+*%
+*%***************************************************************************/
+class FinWait2State : public TCPState
+{
+ public:
+  static FinWait2State* instance();
+
+  void NetClose(TCPConnection* theConnection);
+  // Handle an incoming FIN segment
+
+  void Receive(TCPConnection* theConnection,
+               udword theSynchronizationNumber,
+               byte*  theData,
+               udword theLength);
+  // Handle incoming data
+
+ protected:
+  FinWait2State() {}
+};
+/*****************************************************************************
+*%
 *% CLASS NAME   : TCPSender
 *%
 *% BASE CLASSES :
@@ -330,6 +405,9 @@ class TCPSender
   TCPSender(TCPConnection* theConnection,
 	        InPacket*      theCreator);
   ~TCPSender();
+
+  void sendFromQueue(byte*  theData, udword theLength);
+  //TODO: Might be wrong
 
   void sendFlags(byte theFlags);
   // Send a flag segment without data.

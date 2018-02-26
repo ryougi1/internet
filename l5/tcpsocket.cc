@@ -34,7 +34,7 @@ TCPSocket::~TCPSocket(){
 }
 
 
-
+// Semaphore blocks read until data is available
 byte* TCPSocket::Read(udword& theLength) {
   myReadSemaphore->wait(); // Wait for available data
   theLength = myReadLength;
@@ -48,10 +48,10 @@ bool TCPSocket::isEof(){
   return eofFound; //TODO: maybe not correct
 }
 
-
+// Semaphore blocks write until data is transmitted AND acked.
 void TCPSocket::Write(byte* theData, udword theLength) {
   myConnection->Send(theData, theLength);
-  myWriteSemaphore->wait(); // Wait until the data is acknowledged 
+  myWriteSemaphore->wait(); // Wait until the data is acknowledged
 }
 
 void TCPSocket::Close(){
@@ -60,6 +60,7 @@ void TCPSocket::Close(){
   //the state machine as a response to the command q or a FIN flag in a received segment.
 }
 
+// Called by state ESTABLISHED receive
 void TCPSocket::socketDataReceived(byte* theData, udword theLength) {
   myReadData = new byte[theLength];
   memcpy(myReadData, theData, theLength);
@@ -67,6 +68,7 @@ void TCPSocket::socketDataReceived(byte* theData, udword theLength) {
   myReadSemaphore->signal(); // Data is available
 }
 
+// Called by state ESTABLISHED acknowledge
 void TCPSocket::socketDataSent() {
   myWriteSemaphore->signal(); // The data has been acknowledged
 }
@@ -87,8 +89,6 @@ SimpleApplication(TCPSocket* theSocket) {
   mySimpleApplication = new SimpleApplication(theSocket);
 }
 
-
-
 // Gets called when the application thread begins execution.
 // The SimpleApplication job is scheduled by TCP when a connection is
 // established.
@@ -96,14 +96,13 @@ void SimpleApplication::doit(){
   udword aLength;
     byte* aData;
     bool done = false;
-    while (!done && !mySocket->isEof())
-    {
+    while (!done && !mySocket->isEof()) {
       aData = mySocket->Read(aLength);
-      if (aLength > 0)
-      {
+      //TODO: Functionality if 's' was sent.
+      //TODO: Functionality 'r' for 1 MB
+      if (aLength > 0) {
         mySocket->Write(aData, aLength);
-        if ((char)*aData == 'q')
-        {
+        if ((char)*aData == 'q') {
           done = true;
         }
         delete aData;
