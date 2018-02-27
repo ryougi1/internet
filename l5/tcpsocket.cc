@@ -28,13 +28,15 @@ TCPSocket::TCPSocket() {
 }
 
 // Destructor. destroy the semaphores.
-
 TCPSocket::~TCPSocket(){
   delete mySocket;
 }
 
 
-// Semaphore blocks read until data is available
+/**
+Semaphore blocks read until data is available. The method socketDataReceived is
+invoked in EstablishedState::Receive, which releases semaphore.
+*/
 byte* TCPSocket::Read(udword& theLength) {
   myReadSemaphore->wait(); // Wait for available data
   theLength = myReadLength;
@@ -45,7 +47,7 @@ byte* TCPSocket::Read(udword& theLength) {
 }
 
 bool TCPSocket::isEof(){
-  return eofFound; //TODO: maybe not correct
+  return eofFound;
 }
 
 // Semaphore blocks write until data is transmitted AND acked.
@@ -55,9 +57,7 @@ void TCPSocket::Write(byte* theData, udword theLength) {
 }
 
 void TCPSocket::Close(){
-  //TODO
-  //invokes the method EstablishedState::AppClose in
-  //the state machine as a response to the command q or a FIN flag in a received segment.
+  myConnection->AppClose();
 }
 
 // Called by state ESTABLISHED receive
@@ -98,15 +98,31 @@ void SimpleApplication::doit(){
     bool done = false;
     while (!done && !mySocket->isEof()) {
       aData = mySocket->Read(aLength);
-      //TODO: Functionality if 's' was sent.
-      //TODO: Functionality 'r' for 1 MB
       if (aLength > 0) {
-        mySocket->Write(aData, aLength);
+        // mySocket->Write(aData, aLength);
         if ((char)*aData == 'q') {
+          trace << "SimpleApplication:: found 'q'" << endl;
           done = true;
+        } else if ((char)*aData == 'r') {           // Functionality 'r' for 1 MB
+          udword theLength = 1000000;
+          sendBigData(theLength);
+        } else if ((char)*aData == 's') {          // Functionality if 's' was sent.
+          udword theLength = 10000;
+          sendBigData(theLength);
+        } else {                                    // Regular
+          mySocket->Write(aData, aLength);
         }
         delete aData;
       }
     }
     mySocket->Close();
+}
+
+void SimpleApplication::sendBigData(udword theLength) {
+  byte* theData = new byte[theLength]
+  for(int i = 0; i < theLength; i++) {
+    theData[i] = 'A'; // A char is a byte
+  }
+  mySocket->Write(aData, aLength);
+  delete theData;
 }

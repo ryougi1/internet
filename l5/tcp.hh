@@ -140,10 +140,12 @@ class TCPConnection
   TCPSender* myTCPSender;
   TCPState*  myState;
 
+  //Lab 5 variables for transmission queue
   byte* transmitQueue; // a reference to the data to be sent,
   udword queueLength; // the number of data to be sent, and
   udword firstSeq; // the sequence number of the first byte in the queue.
-
+  udword currentSeq; // the sequence number of the current byte in the queue
+  
   udword myWindowSize; // contains the offered window size from each segment.
 
 };
@@ -414,6 +416,8 @@ class TCPSender
   void sendData(byte*  theData,
                 udword theLength);
   // Send a data segment. PSH and ACK flags are set.
+  void sendFromQueue();
+  // Send data from the queue
 
  private:
   TCPConnection* myConnection;
