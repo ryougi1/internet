@@ -122,7 +122,6 @@ TCPConnection::TCPConnection(IPAddress& theSourceAddress,
         myPort(theDestinationPort)
 {
   //trace << "TCP connection created" << endl;
-  currentSeq = 0;
   myTCPSender = new TCPSender(this, theCreator),
   myState = ListenState::instance();
 }
@@ -315,7 +314,6 @@ void EstablishedState::Receive(TCPConnection* theConnection,
   if (theSynchronizationNumber == theConnection->receiveNext) {
     theConnection->receiveNext += theLength; //Update next expected seq nr
     theConnection->mySocket->socketDataReceived(theData, theLength); //Tell socket to release read semaphore
-    Send(theConnection, theData, theLength); //Call EstablishedState::Send
   } else {
     trace << "EstablishedState::Receive unexpected sequence number" << endl;
   }
@@ -327,39 +325,45 @@ void EstablishedState::Acknowledge(TCPConnection* theConnection, udword theAckno
     theConnection->sentUnAcked = theAcknowledgementNumber; // Only update sentUnAcked if received ACK is greater
   }
 
-  if (theAcknowledgementNumber == theConnection->queueLength + theConnection->firstSeq) {
+  if (theAcknowledgementNumber == theConnection->firstSeq + theConnection->queueLength) {
     //All previously sent segments are now acked.
     //Time to release the TCPSocket::Write semaphore
     theConnection->mySocket->socketDataSent();
+
+    //The state variables of the queue must be reset when the last byte of the queue is acknowledged.
+    //Necessary? They are set next time EstablishedState::Send is called.
+
   } else {
+    //Still have data in the queue, so send from there
     theConnection->myTCPSender->sendFromQueue();
   }
-
-  // Handle sendNext in sendFromQueue
 }
 
-// TCPSocket calls TCPConnection::Send which calls myState->Send which is here
-// Send in Lab5 implements a transmission queue
+// TCPSocket::Write calls TCPConnection::Send which calls myState->Send which is here
 void EstablishedState::Send(TCPConnection* theConnection,
           byte*  theData,
           udword theLength)
 {
   //Set variables for transmission queue
-  theConnection->transmitQueue = theData;
-  theConnection->queueLength = theLength;
-  theConnection->firstSeq = theConnection->sendNext;
-  theConnection->currentSeq = theConnection->sendNext;
+  theConnection->transmitQueue = theData; //reference to the data to be sent
+  theConnection->queueLength = theLength; //the number of data to be sent
+  theConnection->firstSeq = theConnection->sendNext; //seq nr of first byte in the queue
 
+  theConnection->theOffset = 0; //first pos in queue relative to transmitQueue to send from
+  theConnection->theFirst = theData; //first byte to send in the segment relative to transmitQueue
+  theConnection->theSendLength = theLength; //the number of bytes to send in a single segment
 
-  while (theConnection->theOffset() != theConnection->queueLength) { //There's more
-    theConnection->myTCPSender->sendFromQueue();
-  }
+  /**
+  Call send from queue. Only necessary once, since EstablishedState::Acknowledge
+  will not hand over semaphore to socket until everything has been sent.
+  */
+  theConnection->myTCPSender->sendFromQueue;
 
-/*
+  /*
+  From Lab 4:
   theConnection->Send(theData, theLength); //Echo the received data
   theConnection->sendNext += theLength; // Update our own sequence number
   */
-
 }
 
 
@@ -404,6 +408,12 @@ void LastAckState::Acknowledge(TCPConnection* theConnection, udword theAcknowled
   }
 }
 
+/**
+TODO: fin1 and fin2
+TODO: The dynamically allocated array which transmitQueue is a reference to
+must be returned to operating system by the application. It is not the
+responsibility of the TCP state to handle the deallocation. (?)
+*/
 
 //----------------------------------------------------------------------------
 //
@@ -492,19 +502,34 @@ void TCPSender::sendData(byte* theData, udword theLength) {
 }
 
 void TCPSender::sendFromQueue() {
-  udword theWindowSize = theConnection->myWindowSize -
-    (theConnection->sendNext - theConnection->sentUnAcked); // From lab 5 descr.
+  /**
+  Send from current data queue. Must make sure we don't exceed actualWindowSize.
+  Case 1: First call from EstablishedState::Send, just send as much as possible,
+          but update all queue variables.
+  Case 2: All subsequent calls coming from EstablishedState::Ack, meaning client
+          has acked a certain sequence number less than last sequence number of
+          our queue. Start sending from where we left off.
+  */
 
-  //Calculated window size is
+  udword actualWindowSize = theConnection->myWindowSize -
+    (theConnection->sendNext - theConnection->sentUnAcked);
+
+  udword min = MIN(actualWindowSize, myConnection->theSendLength); //Find largest possible amount of data to send
+  if (min > 0) {
+    sendData(myConnection->theFirst, min); //Send as much as we can
+    myConnection->theOffset += min; // Update offset, necessary (not used yet)?
+    myConnection->theFirst += min; // Update first byte to send in the segment
+    myConnection->theSendLength -= min; // Update amount of data left to send
+  }
+
+
+
+  /**
+  TODO: Add functionality for retransmission
   if (theWindowSize > myConnection->myWindowSize) {
       theWindowSize = 0;
   }
-
-  udword min = MIN(theWindowSize, myConnection->queueLength);
-
-  if (myConnection->sendNext < myConnection->currentSeq) { // sendNext less than currentSeq
-
-  } else {
+  */
 
   }
 }

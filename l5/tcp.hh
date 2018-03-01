@@ -142,10 +142,16 @@ class TCPConnection
 
   //Lab 5 variables for transmission queue
   byte* transmitQueue; // a reference to the data to be sent,
-  udword queueLength; // the number of data to be sent, and
+  udword queueLength; // the number of data to be sent
   udword firstSeq; // the sequence number of the first byte in the queue.
-  udword currentSeq; // the sequence number of the current byte in the queue
-  
+
+  // the first position in the queue relative the variable transmitQueue to send from
+  udword theOffset;
+  //the first byte to send in the segment relative the variable transmitQueue
+  byte* theFirst;
+  // the number of byte to send in a single segment
+  udword theSendLength;
+
   udword myWindowSize; // contains the offered window size from each segment.
 
 };
