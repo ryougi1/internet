@@ -15,6 +15,7 @@
 #include "ipaddr.hh"
 #include "queue.hh"
 #include "ip.hh"
+#include "tcpsocket.hh"
 
 /****************** CLASS DEFINITION SECTION ********************************/
 
@@ -80,6 +81,7 @@ class TCP
 *%***************************************************************************/
 class TCPState;
 class TCPSender;
+class TCPSocket;
 class TCPConnection
 {
  public:
@@ -95,9 +97,8 @@ class TCPConnection
   // Returns true if this connection matches the arguments
   uword serverPortNumber();
   // Return myPort.
-  void  registerSocket(TCPSocket* theSocket);
+  void registerSocket(TCPSocket* theSocket);
   // Set mySocket to theSocket.
-
   void Synchronize(udword theSynchronizationNumber);
   // Handle an incoming SYN segment
   void NetClose();
@@ -139,6 +140,7 @@ class TCPConnection
 
   TCPSender* myTCPSender;
   TCPState*  myState;
+  TCPSocket* mySocket;
 
   //Lab 5 variables for transmission queue
   byte* transmitQueue; // a reference to the data to be sent,
@@ -359,7 +361,8 @@ class FinWait1State : public TCPState
   void Acknowledge(TCPConnection* theConnection,
                    udword theAcknowledgementNumber);
   // Handle incoming Acknowledgement
-
+  //TODO: Add receive
+  //Should be possible but not necessary in our scope
  protected:
   FinWait1State() {}
 };
@@ -385,12 +388,13 @@ class FinWait2State : public TCPState
   void NetClose(TCPConnection* theConnection);
   // Handle an incoming FIN segment
 
+ /**
   void Receive(TCPConnection* theConnection,
                udword theSynchronizationNumber,
                byte*  theData,
                udword theLength);
   // Handle incoming data
-
+*/ //should be possible but not necessary in our scope
  protected:
   FinWait2State() {}
 };

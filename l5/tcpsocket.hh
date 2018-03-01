@@ -13,6 +13,9 @@
 /****************** INCLUDE FILES SECTION ***********************************/
 
 #include "job.hh"
+#include "threads.hh"
+#include "tcp.hh"
+
 
 /****************** CLASS DEFINITION SECTION ********************************/
 

@@ -23,13 +23,17 @@ extern "C"
 
 // Constructor. The socket is created by class TCP when a connection is
 // established. create the semaphores
-TCPSocket::TCPSocket() {
-  mySocket = new TCPSocket(TCPConnection* theConnection);
+TCPSocket::TCPSocket(TCPConnection* theConnection) :
+  myConnection(theConnection),
+  myReadSemaphore(Semaphore::createQueueSemaphore("ReadSemaphore", 0)),
+  myWriteSemaphore(Semaphore::createQueueSemaphore("WriteSemaphore", 0))
+{
 }
 
 // Destructor. destroy the semaphores.
 TCPSocket::~TCPSocket(){
-  delete mySocket;
+  delete myReadSemaphore;
+  delete myWriteSemaphore;
 }
 
 
@@ -52,6 +56,7 @@ bool TCPSocket::isEof(){
 
 // Semaphore blocks write until data is transmitted AND acked.
 void TCPSocket::Write(byte* theData, udword theLength) {
+  cout << "Inside TCPSocket::Write" << endl;
   myConnection->Send(theData, theLength);
   myWriteSemaphore->wait(); // Wait until the data is acknowledged
 }
@@ -62,6 +67,7 @@ void TCPSocket::Close(){
 
 // Called by state ESTABLISHED receive
 void TCPSocket::socketDataReceived(byte* theData, udword theLength) {
+  cout << "Releasing read semaphore" << endl;
   myReadData = new byte[theLength];
   memcpy(myReadData, theData, theLength);
   myReadLength = theLength;
@@ -85,14 +91,16 @@ void TCPSocket::socketEof() {
 
 // Constructor. The application is created by class TCP when a connection is
 // established.
-SimpleApplication(TCPSocket* theSocket) {
-  mySimpleApplication = new SimpleApplication(theSocket);
+SimpleApplication::SimpleApplication(TCPSocket* theSocket) :
+  mySocket(theSocket)
+{
 }
 
 // Gets called when the application thread begins execution.
 // The SimpleApplication job is scheduled by TCP when a connection is
 // established.
 void SimpleApplication::doit(){
+  cout << "SimpleApplication started" << endl;
   udword aLength;
     byte* aData;
     bool done = false;
@@ -101,7 +109,7 @@ void SimpleApplication::doit(){
       if (aLength > 0) {
         // mySocket->Write(aData, aLength);
         if ((char)*aData == 'q') {
-          trace << "SimpleApplication:: found 'q'" << endl;
+          cout << "SimpleApplication:: found 'q'" << endl;
           done = true;
         } else if ((char)*aData == 'r') {           // Functionality 'r' for 1 MB
           udword theLength = 1000000;
@@ -110,6 +118,7 @@ void SimpleApplication::doit(){
           udword theLength = 10000;
           sendBigData(theLength);
         } else {                                    // Regular
+          cout << "SimpleApplication tried to write" << endl;
           mySocket->Write(aData, aLength);
         }
         delete aData;
@@ -119,10 +128,10 @@ void SimpleApplication::doit(){
 }
 
 void SimpleApplication::sendBigData(udword theLength) {
-  byte* theData = new byte[theLength]
+  byte* theData = new byte[theLength];
   for(int i = 0; i < theLength; i++) {
     theData[i] = 'A'; // A char is a byte
   }
-  mySocket->Write(aData, aLength);
+  mySocket->Write(theData, theLength);
   delete theData;
 }
