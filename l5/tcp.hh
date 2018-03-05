@@ -16,6 +16,7 @@
 #include "queue.hh"
 #include "ip.hh"
 #include "tcpsocket.hh"
+#include "timer.hh"
 
 /****************** CLASS DEFINITION SECTION ********************************/
 
@@ -141,6 +142,7 @@ class TCPConnection
   TCPSender* myTCPSender;
   TCPState*  myState;
   TCPSocket* mySocket;
+  RetransmitTimer* myTimer;
 
   //Lab 5 variables for transmission queue
   byte* transmitQueue; // a reference to the data to be sent,
@@ -155,6 +157,8 @@ class TCPConnection
   udword theSendLength;
 
   udword myWindowSize; // contains the offered window size from each segment.
+
+  udword sentMaxSeq; // For retransmitt 
 
 };
 
@@ -523,6 +527,31 @@ class TCPPseudoHeader
   byte      zero;
   byte      protocol;
   uword     tcpLength;
+};
+
+/*****************************************************************************
+*%
+*% CLASS NAME   : RetransmitTimer
+*
+*% DESCRIPTION  : Timer used for TCP retransmission
+*
+*%***************************************************************************/
+
+class retransmitTimer : public Timed
+{
+ public:
+   retransmitTimer(TCPConnection* theConnection,
+                   Duration retransmitTime);
+   void start();
+   // this->timeOutAfter(myRetransmitTime);
+   void cancel();
+   // this->resetTimeOut();
+ private:
+   void timeOut();
+   // ...->sendNext = ...->sentUnAcked; ..->sendFromQueue();
+   TCPConnection* myConnection;
+   Duration myRetransmitTime;
+   // one second
 };
 
 #endif

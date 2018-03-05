@@ -25,8 +25,8 @@ extern "C"
 // established. create the semaphores
 TCPSocket::TCPSocket(TCPConnection* theConnection) :
   myConnection(theConnection),
-  myReadSemaphore(Semaphore::createQueueSemaphore("ReadSemaphore", 0)),
-  myWriteSemaphore(Semaphore::createQueueSemaphore("WriteSemaphore", 0))
+  myReadSemaphore(Semaphore::createQueueSemaphore("readSemaphore", 0)),
+  myWriteSemaphore(Semaphore::createQueueSemaphore("writeSemaphore", 0))
 {
 }
 
@@ -128,6 +128,7 @@ void SimpleApplication::doit(){
 }
 
 void SimpleApplication::sendBigData(udword theLength) {
+  cout << "SimpleApplication::sendBigData" << endl;
   byte* theData = new byte[theLength];
   for(int i = 0; i < theLength; i++) {
     theData[i] = 'A'; // A char is a byte

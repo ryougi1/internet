@@ -124,6 +124,8 @@ TCPConnection::TCPConnection(IPAddress& theSourceAddress,
   //trace << "TCP connection created" << endl;
   myTCPSender = new TCPSender(this, theCreator),
   myState = ListenState::instance();
+  myTimer = new RetransmitTimer(this, Clock::seconds * 1);
+  sentMaxSeq = 0;
 }
 
 TCPConnection::~TCPConnection()
@@ -222,16 +224,17 @@ ListenState* ListenState::instance() {
 
 void ListenState::Synchronize(TCPConnection* theConnection,
                               udword theSynchronizationNumber) {
+
 if (TCP::instance().acceptConnection(theConnection->myPort)) {
   switch (theConnection->myPort) {
    case 7:
      // The next expected sequence number from the other host is receiveNext
-     trace << "ListenState::Synchronize received SYN ACK from client" << endl;
+     trace << "ListenState::Synchronize received SYN ACK from client on ECHO port" << endl;
      theConnection->receiveNext = theSynchronizationNumber + 1; //Increment next expected seq nr
      theConnection->receiveWindow = 8*1024;
      theConnection->sendNext = get_time(); //Next seq nr to be sent
-
-     /**The variable sentUnAcked contains the latest sequence number an
+     /**
+     The variable sentUnAcked contains the latest sequence number an
      acknowledgement has been received for.
      */
      theConnection->sentUnAcked = theConnection->sendNext; //Initiate sentUnAcked as initial seq nr - 1 (so it is technically un-acked)
@@ -262,9 +265,9 @@ Expect to get (ACK) on our (SYN, ACK) .
 */
 void SynRecvdState::Acknowledge(TCPConnection* theConnection, udword theAcknowledgementNumber) {
     //trace << "SynRecvdState::Acknowledge" << endl;
-    trace << "SynRecvdState before if statement" << endl;
+    // Since sendNext was incremented in ListenState,the ACK should be for our next segment
     if(theAcknowledgementNumber == theConnection->sendNext) {
-      // Since sendNext was incremented in ListenState,the ACK should be for our next segment
+      trace << "SynRecvdState::Acknowledge" << endl;
       theConnection->sentUnAcked = theAcknowledgementNumber; //Update sentUnAcked to last acked segment
       theConnection->myState = EstablishedState::instance(); //Change state to Established
       TCP::instance().connectionEstablished(theConnection); //Call new lab5 method for socket & app functionality
@@ -299,6 +302,7 @@ void EstablishedState::NetClose(TCPConnection* theConnection) {
 }
 
 void EstablishedState::AppClose(TCPConnection* theConnection) {
+  trace << "EstablishedState::Appclose received AppClose from TCPSocket" << endl;
   theConnection->myState = FinWait1State::instance();
   theConnection->myTCPSender->sendFlags(0x11); //Send FIN ACK
   theConnection->sendNext = theConnection->sendNext + 1; //https://community.apigee.com/articles/7970/tcp-states-explained.html
@@ -315,7 +319,6 @@ void EstablishedState::Receive(TCPConnection* theConnection,
   //trace << "EstablishedState::Receive" << endl;
   trace << "Received seq nr: " << theConnection->receiveNext << " Expected seq nr: " << theSynchronizationNumber << endl;
   if (theSynchronizationNumber == theConnection->receiveNext) {
-    trace << "inside the if " << endl;
     theConnection->receiveNext += theLength; //Update next expected seq nr
     theConnection->mySocket->socketDataReceived(theData, theLength); //Tell socket to release read semaphore
   } else {
@@ -333,7 +336,6 @@ void EstablishedState::Acknowledge(TCPConnection* theConnection, udword theAckno
     //All previously sent segments are now acked.
     //Time to release the TCPSocket::Write semaphore
     theConnection->mySocket->socketDataSent();
-
     //The state variables of the queue must be reset when the last byte of the queue is acknowledged.
     //Necessary? They are set next time EstablishedState::Send is called.
 
@@ -428,8 +430,12 @@ FinWait1State* FinWait1State::instance() {
 }
 
 void FinWait1State::Acknowledge(TCPConnection* theConnection, udword theAcknowledgementNumber) {
+  trace << "FinWait1State::Acknowledge entered" << endl;
   if (theAcknowledgementNumber == theConnection->sendNext) { //Ensure ACK was for the FINACK we sent
     theConnection->myState = FinWait2State::instance();
+  } else {
+    trace << "FinWait1State::Acknowledge Unexpected Acknowledge number" << endl;
+
   }
 }
 
@@ -441,8 +447,10 @@ FinWait2State* FinWait2State::instance() {
 }
 
 void FinWait2State::NetClose(TCPConnection* theConnection) {
+  trace << "FinWait2State::NetClose entered" << endl;
   theConnection->receiveNext += 1;
   theConnection->myTCPSender->sendFlags(0x10); //Send ACK
+  theConnection->Kill();
 }
 
 //----------------------------------------------------------------------------
@@ -538,30 +546,32 @@ void TCPSender::sendFromQueue() {
           but update all queue variables.
   Case 2: All subsequent calls coming from EstablishedState::Ack, meaning client
           has acked a certain sequence number less than last sequence number of
-          our queue. Start sending from where we left off.
+          our queue. Start sending as much as possible from where we left off.
   */
-  trace << "Trying to send from queue" << endl;
+  trace << "TCPSender::sendFromQueue Trying to send from queue" << endl;
+  //Calculate actual available window size
   udword actualWindowSize = myConnection->myWindowSize -
     (myConnection->sendNext - myConnection->sentUnAcked);
 
   trace << "myWindowSize: " << myConnection->myWindowSize << " sendNext: " << myConnection->sendNext << " sentUnacked: " << myConnection->sentUnAcked << endl;
-
   udword min = MIN(actualWindowSize, myConnection->theSendLength); //Find largest possible amount of data to send
   trace << "actualWindowSize: " << actualWindowSize << " theSendLength: " << myConnection->theSendLength << " min: " << min << endl;
+
   if (min > 0) {
-    trace << "called sendData from sendFromQueue" << endl;
-    sendData(myConnection->theFirst, min); //Send as much as we can
-    myConnection->theOffset += min; // Update offset, necessary (not used yet)?
-    myConnection->theFirst += min; // Update first byte to send in the segment
+    trace << "Called sendData from sendFromQueue" << endl;
+    trace << "Sending seq: " << myConnection->theFirst << " + " << min << endl;
+    sendData(myConnection->theFirst + myConnection->theOffset, min); //Send as much as we can
+    myConnection->theOffset += min; // Update offset
+    myConnection->sendNext += min; // Update next sequenceNumber;
+    //myConnection->theFirst += min; // Update first byte to send in the segment
     myConnection->theSendLength -= min; // Update amount of data left to send
   }
 
   /**
   TODO: Add functionality for retransmission
-  if (theWindowSize > myConnection->myWindowSize) {
-      theWindowSize = 0;
-  }
   */
+
+
 }
 
 //----------------------------------------------------------------------------
@@ -583,7 +593,7 @@ void TCPInPacket::decode() {
   myDestinationPort = HILO(tcpHeader->destinationPort);
   mySequenceNumber = LHILO(tcpHeader->sequenceNumber);
   myAcknowledgementNumber = LHILO(tcpHeader->acknowledgementNumber);
-  //TODO: must send in windowSize otherwise our sendFromQueue doesn't work.
+
 
   TCPConnection* aConnection =
            TCP::instance().getConnection(mySourceAddress,
@@ -604,17 +614,8 @@ void TCPInPacket::decode() {
         aConnection->Kill();
       }
     } else {
-      // TODO: Connection was established. Handle all states.
-
-      //State ESTABLISHED. Received RST flag
-      if ((tcpHeader->flags & 0x04) == 0x04) {
-        aConnection->Kill();
-      }
-
-      //State ESTABLISHED. Received FIN flag.
-      if ((tcpHeader->flags & 0x01) == 0x01) {
-        aConnection->NetClose();
-      }
+      //Connection was established. Handle all states.
+      aConnection->myWindowSize = HILO(tcpHeader->windowSize);
 
       //State ESTABLISHED or SynRecvd. Received ACK flag.
       if ((tcpHeader->flags & 0x10) == 0x10) {
@@ -626,6 +627,16 @@ void TCPInPacket::decode() {
       //NOTE: Enters here after proccing regular ACK.
       if ((tcpHeader->flags & 0x18) == 0x18) {
         aConnection->Receive(mySequenceNumber, myData + TCP::tcpHeaderLength, myLength - TCP::tcpHeaderLength);
+      }
+
+      //State ESTABLISHED. Received RST flag
+      if ((tcpHeader->flags & 0x04) == 0x04) {
+        aConnection->Kill();
+      }
+
+      //State ESTABLISHED. Received FIN flag.
+      if ((tcpHeader->flags & 0x01) == 0x01) {
+        aConnection->NetClose();
       }
 
     }
@@ -666,5 +677,28 @@ TCPPseudoHeader::checksum()
   return calculateChecksum((byte*)this, 12);
 }
 
+//----------------------------------------------------------------------------
+//
 
+RetransmitTimer::RetransmitTimer(TCPConnection* theConnection, Duration retransmitTime) :
+                                    myConnection(theConnection),
+                                    myRetransmitTime(retransmitTime)
+{}
+
+  void RetransmitTimer::start() {
+     this->timeOutAfter(myRetransmitTime);
+  }
+
+  void cancel() {
+    cout << "RetransmitTimer::Cancel called" << endl;
+    this->resetTimeOut();
+  }
+
+  void timeOut() {
+    cout << "RetransmitTimer::timeOut was triggered" << endl;
+    myConnection->sendNext = myConnection->sentUnAcked;
+    myConnection->myTCPSender->sendFromQueue();
+  }
+
+};
 /****************** END OF FILE tcp.cc *************************************/
