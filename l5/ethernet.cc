@@ -376,9 +376,8 @@ Ethernet::decodeReceivedPacket()
 
 //----------------------------------------------------------------------------
 //
-void
-Ethernet::transmittPacket(byte *theData, udword theLength) {
-  trace << "transmitt" << endl;
+void Ethernet::transmittPacket(byte *theData, udword theLength) {
+  cout << "Inside transmittPacket" << endl;
   // Make sure the packet fits in the transmitt buffer.
 
   /* If the packet ends at a 256 byte boundary, the next buffer is skipped  */
@@ -541,6 +540,8 @@ void EthernetInPacket::decode() {
 
 
 void EthernetInPacket::answer(byte* theData, udword theLength){
+  cout << "EthernetInPacket::answer was called" << endl;
+
   // Upper layers may choose to send an answer to the sender of this packet
   // prepend the appropriate ethernet information and send the packet
   EthernetHeader* responseHeader = new EthernetHeader(); //Create a new header for response
@@ -553,6 +554,7 @@ void EthernetInPacket::answer(byte* theData, udword theLength){
   theLength += headerOffset(); //Adapt length to include header
   //Do not add CRC, nore make room for it, will be done automatically after the
   //address of endPointer in transmittPacket (see FAQ).
+  cout << "Called transmittPacket" << endl;
   Ethernet::instance().transmittPacket(theData, theLength);
   delete responseHeader;
   delete[] theData;

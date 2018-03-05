@@ -83,6 +83,7 @@ class TCP
 class TCPState;
 class TCPSender;
 class TCPSocket;
+class RetransmitTimer;
 class TCPConnection
 {
  public:
@@ -158,7 +159,7 @@ class TCPConnection
 
   udword myWindowSize; // contains the offered window size from each segment.
 
-  udword sentMaxSeq; // For retransmitt 
+  udword sentMaxSeq; // For retransmitt
 
 };
 
@@ -537,10 +538,10 @@ class TCPPseudoHeader
 *
 *%***************************************************************************/
 
-class retransmitTimer : public Timed
+class RetransmitTimer : public Timed
 {
  public:
-   retransmitTimer(TCPConnection* theConnection,
+   RetransmitTimer(TCPConnection* theConnection,
                    Duration retransmitTime);
    void start();
    // this->timeOutAfter(myRetransmitTime);

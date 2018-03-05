@@ -56,7 +56,7 @@ bool TCPSocket::isEof(){
 
 // Semaphore blocks write until data is transmitted AND acked.
 void TCPSocket::Write(byte* theData, udword theLength) {
-  cout << "Inside TCPSocket::Write" << endl;
+  //cout << "Inside TCPSocket::Write" << endl;
   myConnection->Send(theData, theLength);
   myWriteSemaphore->wait(); // Wait until the data is acknowledged
 }
@@ -67,7 +67,7 @@ void TCPSocket::Close(){
 
 // Called by state ESTABLISHED receive
 void TCPSocket::socketDataReceived(byte* theData, udword theLength) {
-  cout << "Releasing read semaphore" << endl;
+  //cout << "Releasing read semaphore" << endl;
   myReadData = new byte[theLength];
   memcpy(myReadData, theData, theLength);
   myReadLength = theLength;
@@ -100,16 +100,15 @@ SimpleApplication::SimpleApplication(TCPSocket* theSocket) :
 // The SimpleApplication job is scheduled by TCP when a connection is
 // established.
 void SimpleApplication::doit(){
-  cout << "SimpleApplication started" << endl;
+  //cout << "SimpleApplication started" << endl;
   udword aLength;
     byte* aData;
     bool done = false;
     while (!done && !mySocket->isEof()) {
       aData = mySocket->Read(aLength);
       if (aLength > 0) {
-        // mySocket->Write(aData, aLength);
         if ((char)*aData == 'q') {
-          cout << "SimpleApplication:: found 'q'" << endl;
+          //cout << "SimpleApplication:: found 'q'" << endl;
           done = true;
         } else if ((char)*aData == 'r') {           // Functionality 'r' for 1 MB
           udword theLength = 1000000;
@@ -118,7 +117,7 @@ void SimpleApplication::doit(){
           udword theLength = 10000;
           sendBigData(theLength);
         } else {                                    // Regular
-          cout << "SimpleApplication tried to write" << endl;
+          //cout << "SimpleApplication tried to write" << endl;
           mySocket->Write(aData, aLength);
         }
         delete aData;
@@ -128,7 +127,7 @@ void SimpleApplication::doit(){
 }
 
 void SimpleApplication::sendBigData(udword theLength) {
-  cout << "SimpleApplication::sendBigData" << endl;
+  //cout << "SimpleApplication::sendBigData" << endl;
   byte* theData = new byte[theLength];
   for(int i = 0; i < theLength; i++) {
     theData[i] = 'A'; // A char is a byte

@@ -100,6 +100,7 @@ void IPInPacket::decode() {
 //----------------------------------------------------------------------------
 //
 void IPInPacket::answer(byte *theData, udword theLength) {
+  cout << "IPInPacket::answer was called" << endl;
   IPHeader* replyHeader = new IPHeader();
   /**
   Set the version field to 4.
