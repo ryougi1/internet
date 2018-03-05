@@ -67,7 +67,7 @@ void TCPSocket::Close(){
 
 // Called by state ESTABLISHED receive
 void TCPSocket::socketDataReceived(byte* theData, udword theLength) {
-  //cout << "Releasing read semaphore" << endl;
+  cout << "Releasing read semaphore" << endl;
   myReadData = new byte[theLength];
   memcpy(myReadData, theData, theLength);
   myReadLength = theLength;
@@ -76,6 +76,7 @@ void TCPSocket::socketDataReceived(byte* theData, udword theLength) {
 
 // Called by state ESTABLISHED acknowledge
 void TCPSocket::socketDataSent() {
+  cout << "Releasing write semaphore" << endl;
   myWriteSemaphore->signal(); // The data has been acknowledged
 }
 
@@ -102,28 +103,27 @@ SimpleApplication::SimpleApplication(TCPSocket* theSocket) :
 void SimpleApplication::doit(){
   //cout << "SimpleApplication started" << endl;
   udword aLength;
-    byte* aData;
-    bool done = false;
-    while (!done && !mySocket->isEof()) {
-      aData = mySocket->Read(aLength);
-      if (aLength > 0) {
-        if ((char)*aData == 'q') {
-          //cout << "SimpleApplication:: found 'q'" << endl;
-          done = true;
-        } else if ((char)*aData == 'r') {           // Functionality 'r' for 1 MB
-          udword theLength = 1000000;
-          sendBigData(theLength);
-        } else if ((char)*aData == 's') {          // Functionality if 's' was sent.
-          udword theLength = 10000;
-          sendBigData(theLength);
-        } else {                                    // Regular
-          //cout << "SimpleApplication tried to write" << endl;
-          mySocket->Write(aData, aLength);
-        }
-        delete aData;
+  byte* aData;
+  bool done = false;
+  while (!done && !mySocket->isEof()) {
+    aData = mySocket->Read(aLength);
+    if (aLength > 0) {
+      if ((char)*aData == 'q') {
+        //cout << "SimpleApplication:: found 'q'" << endl;
+        done = true;
+      } else if ((char)*aData == 'r') {           // Functionality 'r' for 1 MB
+        udword theLength = 1000000;
+        sendBigData(theLength);
+      } else if ((char)*aData == 's') {          // Functionality if 's' was sent.
+        udword theLength = 10000;
+        sendBigData(theLength);
+      } else {                                    // Regular
+        mySocket->Write(aData, aLength);
       }
+      delete aData;
     }
-    mySocket->Close();
+  }
+  mySocket->Close();
 }
 
 void SimpleApplication::sendBigData(udword theLength) {
