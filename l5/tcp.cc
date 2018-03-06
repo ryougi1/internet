@@ -339,11 +339,11 @@ void EstablishedState::Acknowledge(TCPConnection* theConnection, udword theAckno
     theConnection->firstSeq = 0;
     theConnection->queueLength = 0;
     theConnection->mySocket->socketDataSent();
-  } else if (theConnection->theOffset < theConnection->queueLength){
+  } else if (theConnection->theSendLength > 0){
     //Still have data in the queue, so send from there
     theConnection->myTCPSender->sendFromQueue();
   } else {
-    trace << "Something's gone wrong here lads" << endl;
+    trace << "Nothing left to send but ACK is not high enough" << endl;
   }
 }
 
@@ -524,6 +524,9 @@ void TCPSender::sendData(byte* theData, udword theLength) {
                                            pseudosum);
   myAnswerChain->answer(anAnswer, totalSegmentLength);
   myConnection->sendNext += theLength;
+  if (myConnection->sendNext > myConnection->sentMaxSeq) {
+    myConnection->sentMaxSeq = myConnection->sendNext;
+  }
   delete anAnswer;
 }
 
@@ -535,27 +538,40 @@ void TCPSender::sendFromQueue() {
   Case 2: All subsequent calls coming from EstablishedState::Ack, meaning client
           has acked a certain sequence number less than last sequence number of
           our queue. Start sending as much as possible from where we left off.
+  Case 3: Timer has triggered, sendNext = sentUnAcked which is < sentMaxSeq.
+          Retransmitt.
   */
-  //trace << "TCPSender::sendFromQueue Trying to send from queue" << endl;
-  //Calculate actual available window size
 
-  //TODO: sendNext is changed in sendData.
+  if (myConnection->sendNext < myConnection->sentMaxSeq) {
+    trace << "Retransmitting lost seq: " << myConnection->firstSeq + myConnection->theOffset << endl;
+    udword lengthOfRetransmitt = myConnection->sentMaxSeq - myConnection->sendNext; //Try to resend it all
+    sendData(myConnection->transmitQueue + (myConnection->sendNext - myConnection->firstSeq), lengthOfRetransmitt);
+    //myConnection->myTimer->start(); ???
+    return; //Do not want to continue regular sending until we get an ACK.
+  }
+
+  //Calculate actual available window size
   udword actualWindowSize = myConnection->myWindowSize -
-    (myConnection->sendNext - myConnection->sentUnAcked);
+                              (myConnection->sendNext - myConnection->sentUnAcked);
 
   trace << "myWindowSize: " << myConnection->myWindowSize << " sendNext: " << myConnection->sendNext << " sentUnacked: " << myConnection->sentUnAcked << endl;
   udword min = MIN(actualWindowSize, myConnection->theSendLength); //Find largest possible amount of data to send
+  min = MIN(min, 1460); //Ethernet MTU is 1500 bytes, IP header + TCP header is 20 + 20 bytes.
   trace << "actualWindowSize: " << actualWindowSize << " theSendLength: " << myConnection->theSendLength << " min: " << min << endl;
 
   if (min > 0) {
     //trace << "Called sendData from sendFromQueue" << endl;
     trace << "Sending seq: " << myConnection->firstSeq + myConnection->theOffset << endl;
     sendData(myConnection->theFirst + myConnection->theOffset, min); //Send as much as we can
+    myConnection->myTimer->start(); //Start our retransmit timer
     myConnection->theOffset += min; // Update offset
     myConnection->theSendLength -= min; // Update amount of data left to send
   } else {
-    trace << "Nothing to send OR not enough window size" << endl;
+    trace << "Nothing left to send OR not enough window size, waiting for ACK" << endl;
+
   }
+
+
 
   /**
   TODO: Add functionality for retransmission
