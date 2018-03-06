@@ -379,7 +379,7 @@ Ethernet::decodeReceivedPacket()
 //----------------------------------------------------------------------------
 //
 void Ethernet::transmittPacket(byte *theData, udword theLength) {
-  cout << "Inside transmittPacket" << endl;
+  //cout << "Inside transmittPacket" << endl;
   // Make sure the packet fits in the transmitt buffer.
 
   /* If the packet ends at a 256 byte boundary, the next buffer is skipped  */

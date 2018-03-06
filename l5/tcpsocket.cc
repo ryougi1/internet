@@ -28,6 +28,7 @@ TCPSocket::TCPSocket(TCPConnection* theConnection) :
   myReadSemaphore(Semaphore::createQueueSemaphore("readSemaphore", 0)),
   myWriteSemaphore(Semaphore::createQueueSemaphore("writeSemaphore", 0))
 {
+  eofFound = 0;
 }
 
 // Destructor. destroy the semaphores.
@@ -67,7 +68,7 @@ void TCPSocket::Close(){
 
 // Called by state ESTABLISHED receive
 void TCPSocket::socketDataReceived(byte* theData, udword theLength) {
-  cout << "Releasing read semaphore" << endl;
+  //cout << "Releasing read semaphore" << endl;
   myReadData = new byte[theLength];
   memcpy(myReadData, theData, theLength);
   myReadLength = theLength;
@@ -76,7 +77,7 @@ void TCPSocket::socketDataReceived(byte* theData, udword theLength) {
 
 // Called by state ESTABLISHED acknowledge
 void TCPSocket::socketDataSent() {
-  cout << "Releasing write semaphore" << endl;
+  //cout << "Releasing write semaphore" << endl;
   myWriteSemaphore->signal(); // The data has been acknowledged
 }
 
@@ -105,7 +106,7 @@ void SimpleApplication::doit(){
   udword aLength;
   byte* aData;
   bool done = false;
-  while (!done && !mySocket->isEof()) {
+  while ((!done) && (!mySocket->isEof())) {
     aData = mySocket->Read(aLength);
     if (aLength > 0) {
       if ((char)*aData == 'q') {
@@ -122,7 +123,9 @@ void SimpleApplication::doit(){
       }
       delete aData;
     }
+    cout << "AFTER WHILE: " << done << " : " << mySocket->isEof() << endl;
   }
+  cout << "Shouldn't be here" << endl;
   mySocket->Close();
 }
 

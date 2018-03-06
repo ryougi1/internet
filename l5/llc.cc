@@ -80,7 +80,7 @@ LLCInPacket::decode() {
 void
 LLCInPacket::answer(byte *theData, udword theLength)
 {
-  cout << "LLCInPacket::answer was called" << endl;
+  //cout << "LLCInPacket::answer was called" << endl;
   myFrame->answer(theData, theLength);
 }
 

@@ -366,8 +366,7 @@ class FinWait1State : public TCPState
   void Acknowledge(TCPConnection* theConnection,
                    udword theAcknowledgementNumber);
   // Handle incoming Acknowledgement
-  //TODO: Add receive
-  //Should be possible but not necessary in our scope
+  void NetClose(TCPConnection* theConnection);
  protected:
   FinWait1State() {}
 };
