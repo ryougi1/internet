@@ -450,7 +450,6 @@ void Ethernet::transmittPacket(byte *theData, udword theLength) {
       theLength = (udword)(minPacketLength + ethernetHeaderLength); // Pad undersized packets
     }
     txPagePointer->endPointer = ((udword) txPagePointer->data + theLength - 1); //Direct the endPointer to the end of the data
-    //cout << "Core " << ax_coreleft_total() << endl;
   } else {
     trace << "Warped transmission" << endl;
     // STOFF: Copy the two parts into the transmitt buffer, cannot be undersized
@@ -476,6 +475,7 @@ void Ethernet::transmittPacket(byte *theData, udword theLength) {
   // the first page in the packet to 0x10!
   txPagePointer->statusCommand = 0x10; //Send me
   *(volatile byte*)R_TR_CMD = 0x12;
+  cout << "Ethernet transmitt finished" << endl;
 }
 
 //----------------------------------------------------------------------------

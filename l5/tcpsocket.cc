@@ -82,6 +82,7 @@ void TCPSocket::socketDataSent() {
 }
 
 void TCPSocket::socketEof() {
+  cout << "socketEOf was called" << endl;
   eofFound = true;
   myReadSemaphore->signal();
 }
@@ -106,6 +107,7 @@ void SimpleApplication::doit(){
   udword aLength;
   byte* aData;
   bool done = false;
+  cout << "Before WHILE: " << done << " : " << mySocket->isEof() << endl;
   while ((!done) && (!mySocket->isEof())) {
     aData = mySocket->Read(aLength);
     if (aLength > 0) {

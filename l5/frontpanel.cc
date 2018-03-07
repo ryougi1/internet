@@ -25,6 +25,8 @@ CDLEDTimer. See frontpanel.hh for full descr. of the classes.
 
 #include "iostream.hh"
 #include "frontpanel.hh"
+#include "sp_alloc.h"
+
 
 //#define D_FP
 #ifdef D_FP
@@ -169,6 +171,7 @@ void FrontPanel::doit() {
       cdLedEvent = false;
     }
     if (statusLedEvent) {
+      cout << "Core " << ax_coreleft_total() << endl;
       myStatusLED.toggle();
       statusLedEvent = false;
     }
