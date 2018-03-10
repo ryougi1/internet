@@ -12,6 +12,8 @@ extern "C"
 }
 
 #include "tcpsocket.hh"
+#include "sp_alloc.h"
+
 
 #ifdef D_TCPSOCKET
 #define trace cout
@@ -26,9 +28,9 @@ extern "C"
 TCPSocket::TCPSocket(TCPConnection* theConnection) :
   myConnection(theConnection),
   myReadSemaphore(Semaphore::createQueueSemaphore("readSemaphore", 0)),
-  myWriteSemaphore(Semaphore::createQueueSemaphore("writeSemaphore", 0))
+  myWriteSemaphore(Semaphore::createQueueSemaphore("writeSemaphore", 0)),
+  eofFound(false)
 {
-  eofFound = 0;
 }
 
 // Destructor. destroy the semaphores.
@@ -107,36 +109,40 @@ void SimpleApplication::doit(){
   udword aLength;
   byte* aData;
   bool done = false;
-  cout << "Before WHILE: " << done << " : " << mySocket->isEof() << endl;
-  while ((!done) && (!mySocket->isEof())) {
+  //cout << "Before WHILE: " << done << " : " << mySocket->isEof() << endl;
+  while ((!done)) {
     aData = mySocket->Read(aLength);
     if (aLength > 0) {
       if ((char)*aData == 'q') {
         //cout << "SimpleApplication:: found 'q'" << endl;
         done = true;
-      } else if ((char)*aData == 'r') {           // Functionality 'r' for 1 MB
-        udword theLength = 1000000;
-        sendBigData(theLength);
-      } else if ((char)*aData == 's') {          // Functionality if 's' was sent.
-        udword theLength = 10000;
-        sendBigData(theLength);
+      } else if ((char)*aData == 'r') {           // Functionality 'r' for bulk data.
+        sendBigData('r');
+      } else if ((char)*aData == 's') {          // Functionality 's' for even more bulk data.
+        sendBigData('s');
       } else {                                    // Regular
         mySocket->Write(aData, aLength);
       }
-      delete aData;
     }
-    cout << "AFTER WHILE: " << done << " : " << mySocket->isEof() << endl;
+    delete aData;
+    //cout << "AFTER WHILE: " << done << " : " << mySocket->isEof() << endl;
   }
-  cout << "Shouldn't be here" << endl;
+  cout << "SimpleApplication::doIt is bailing out holmes" << endl;
   mySocket->Close();
 }
 
-void SimpleApplication::sendBigData(udword theLength) {
-  //cout << "SimpleApplication::sendBigData" << endl;
-  byte* theData = new byte[theLength];
-  for(int i = 0; i < theLength; i++) {
-    theData[i] = 'A'; // A char is a byte
+void SimpleApplication::sendBigData(char code) {
+  byte* theData = new byte[10000];
+  for (int i = 0; i < 10000; i++) {
+    theData[i] = 'a';
   }
-  mySocket->Write(theData, theLength);
+  switch (code) {
+    case 'r': mySocket->Write(theData, 10000); break;
+    case 's':
+      for (int j = 0; j < 10; j++) {
+        mySocket->Write(theData, 10000);
+      }
+      break;
+  }
   delete theData;
 }

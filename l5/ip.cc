@@ -134,6 +134,7 @@ void IPInPacket::answer(byte *theData, udword theLength) {
   theData -= IP::ipHeaderLength;
   memcpy(theData, replyHeader, IP::ipHeaderLength);
   theLength += IP::ipHeaderLength;
+  //cout << "Ip answer method is calling myFrame->answer" << endl;
   myFrame->answer(theData, theLength);
   delete replyHeader;
 }
@@ -143,6 +144,7 @@ uword IPInPacket::headerOffset() {
 }
 
 InPacket* IPInPacket::copyAnswerChain() {
+  //cout << "IPInPacket called copyAnswerChain" << endl;
   IPInPacket* anAnswerPacket = new IPInPacket(*this); //Create reference IPInPacket
   anAnswerPacket->setNewFrame(myFrame->copyAnswerChain()); //Set the frame to LLC
   return anAnswerPacket;

@@ -459,7 +459,7 @@ void Ethernet::transmittPacket(byte *theData, udword theLength) {
     txPagePointer->endPointer = theLength - firstLength - 1;
     //Since wrap around then packet is at least one block large, no need to worry about min size packet.
   }
-
+  //cout << "Core " << ax_coreleft_total() << endl;
   /* Now we can tell Etrax to send this packet. Unless it is already      */
   /* busy sending packets. In which case it will send this automatically  */
 
@@ -475,7 +475,6 @@ void Ethernet::transmittPacket(byte *theData, udword theLength) {
   // the first page in the packet to 0x10!
   txPagePointer->statusCommand = 0x10; //Send me
   *(volatile byte*)R_TR_CMD = 0x12;
-  cout << "Ethernet transmitt finished" << endl;
 }
 
 //----------------------------------------------------------------------------
@@ -558,6 +557,7 @@ void EthernetInPacket::answer(byte* theData, udword theLength){
   //Do not add CRC, nore make room for it, will be done automatically after the
   //address of endPointer in transmittPacket (see FAQ).
   //cout << "Called transmittPacket" << endl;
+  //cout << "Ethernet answer method is calling transmittPacket" << endl;
   Ethernet::instance().transmittPacket(theData, theLength);
   delete responseHeader;
   //delete[] theData;
@@ -570,6 +570,7 @@ uword EthernetInPacket::headerOffset() {
 }
 
 InPacket* EthernetInPacket::copyAnswerChain() {
+  //cout << "EthernetInPacket called copyAnswerChain" << endl;
   EthernetInPacket* anAnswerPacket = new EthernetInPacket(*this); //Create reference IPInPacket
   anAnswerPacket->setNewFrame(NULL); //Set the frame to LLC
   return anAnswerPacket;

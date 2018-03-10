@@ -114,7 +114,7 @@ class SimpleApplication : public Job
   // Gets called when the application thread begins execution.
   // The SimpleApplication job is scheduled by TCP when a connection is
   // established.
-  void sendBigData(udword theLength);
+  void sendBigData(char code);
   // Gets called on 'r' and 's' to send data of length theLength
 
  private:

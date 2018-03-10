@@ -124,7 +124,7 @@ TCPConnection::TCPConnection(IPAddress& theSourceAddress,
   //trace << "TCP connection created" << endl;
   myTCPSender = new TCPSender(this, theCreator),
   myState = ListenState::instance();
-  myTimer = new RetransmitTimer(this, Clock::seconds * 3);
+  myTimer = new RetransmitTimer(this, Clock::seconds * 1);
   queueLength = 0;
   firstSeq = 0;
   sentMaxSeq = 0;
@@ -233,14 +233,17 @@ if (TCP::instance().acceptConnection(theConnection->myPort)) {
   //trace << "In ListenState receiveNext = " << theConnection->receiveNext << endl;
   theConnection->receiveWindow = 8*1024;
   theConnection->sendNext = get_time(); //Next seq nr to be sent
+  theConnection->sendNext += 1;
   /**
   The variable sentUnAcked contains the latest sequence number an
   acknowledgement has been received for.
   */
   theConnection->sentUnAcked = theConnection->sendNext; //Initiate sentUnAcked as initial seq nr - 1 (so it is technically un-acked)
   theConnection->myTCPSender->sendFlags(0x12); // Send a segment with the SYN and ACK flags set.
+  theConnection->myTCPSender->sendFlags(0x12); // R u kidding me with this?
   theConnection->sendNext += 1; // Prepare for the next send operation.
   theConnection->myState = SynRecvdState::instance();  // Change state
+  //cout << "Core " << ax_coreleft_total() << endl;
 } else {
   //trace << "send RST..." << endl;
   theConnection->sendNext = 0;
@@ -264,10 +267,11 @@ void SynRecvdState::Acknowledge(TCPConnection* theConnection, udword theAcknowle
     //trace << "SynRecvdState::Acknowledge" << endl;
     //The ACK should be for our next segment sendNext, which was incremented in ListenState after sending.
     if(theAcknowledgementNumber == theConnection->sendNext) {
-      trace << "SynRecvdState::Acknowledge connection established, going to EstablishedState" << endl;
+      //trace << "SynRecvdState::Acknowledge connection established, going to EstablishedState" << endl;
       theConnection->sentUnAcked = theAcknowledgementNumber; //Update sentUnAcked to last acked segment
       TCP::instance().connectionEstablished(theConnection); //Call new lab5 method for socket & app functionality
       theConnection->myState = EstablishedState::instance(); //Change state to Established
+      //cout << "Core " << ax_coreleft_total() << endl;
     } else {
       //trace << "SynRecvdState::Acknowledge received wrong ACK nr" << endl;
       theConnection->Kill();
@@ -288,7 +292,7 @@ void EstablishedState::NetClose(TCPConnection* theConnection) {
   We want to increment ack nr, but keep our seq nr the same.
   Since ack nr remains the same as in the prior packet just +1
   */
-  trace << "Received FIN in EstablishedState" << endl;
+  //trace << "Received FIN in EstablishedState" << endl;
   theConnection->receiveNext += 1;
   theConnection->myTCPSender->sendFlags(0x10); //An ACK, to complete half close.
   //theConnection->mySocket->socketEof();
@@ -299,7 +303,7 @@ void EstablishedState::NetClose(TCPConnection* theConnection) {
 }
 
 void EstablishedState::AppClose(TCPConnection* theConnection) {
-  trace << "EstablishedState::Appclose received AppClose from TCPSocket" << endl;
+  //trace << "EstablishedState::Appclose received AppClose from TCPSocket" << endl;
   theConnection->myState = FinWait1State::instance();
   theConnection->myTCPSender->sendFlags(0x11); //Send FIN ACK
   theConnection->sendNext = theConnection->sendNext + 1; //https://community.apigee.com/articles/7970/tcp-states-explained.html
@@ -314,7 +318,7 @@ void EstablishedState::Receive(TCPConnection* theConnection,
   // Delayed ACK is not implemented, simply acknowledge the data
   // by sending an ACK segment, then echo the data using Send.
   //trace << "EstablishedState::Receive" << endl;
-  trace << "Received seq nr: " << theSynchronizationNumber << " Expected seq nr: " << theConnection->receiveNext << endl;
+  //trace << "Received seq nr: " << theSynchronizationNumber << " Expected seq nr: " << theConnection->receiveNext << endl;
   if (theSynchronizationNumber == theConnection->receiveNext) {
     theConnection->receiveNext += theLength; //Update next expected seq nr
     theConnection->mySocket->socketDataReceived(theData, theLength); //Tell socket to release read semaphore
@@ -337,9 +341,10 @@ void EstablishedState::Acknowledge(TCPConnection* theConnection, udword theAckno
     //Time to release the TCPSocket::Write semaphore
     //The state variables of the queue must be reset when the last byte of the queue is acknowledged.
     //Necessary? They are set next time EstablishedState::Send is called. Did it anyway.
-    trace << "EstablishedState::Acknowledge calling socketDataSent" << endl;
+    //trace << "EstablishedState::Acknowledge calling socketDataSent" << endl;
     theConnection->firstSeq = 0;
     theConnection->queueLength = 0;
+    delete theConnection->transmitQueue;
     theConnection->myTimer->cancel();
     theConnection->mySocket->socketDataSent();
   } else if (theConnection->theSendLength > 0){
@@ -347,7 +352,7 @@ void EstablishedState::Acknowledge(TCPConnection* theConnection, udword theAckno
     theConnection->myTimer->cancel();
     theConnection->myTCPSender->sendFromQueue();
   } else {
-    trace << "Nothing left to send but ACK is not high enough" << endl;
+    //trace << "Nothing left to send but ACK is not high enough" << endl;
   }
 }
 
@@ -423,7 +428,7 @@ FinWait1State* FinWait1State::instance() {
 }
 
 void FinWait1State::Acknowledge(TCPConnection* theConnection, udword theAcknowledgementNumber) {
-  trace << "FinWait1State::Acknowledge entered" << endl;
+  //trace << "FinWait1State::Acknowledge has received final ACK, shut it down boys." << endl;
   if (theAcknowledgementNumber == theConnection->sendNext) { //Ensure ACK was for the FINACK we sent
     /**
     Should receive an ACK, change state to FinWait2State, and from there
@@ -436,12 +441,12 @@ void FinWait1State::Acknowledge(TCPConnection* theConnection, udword theAcknowle
     theConnection->myTCPSender->sendFlags(0x10); //Send ACK
     theConnection->Kill();
   } else {
-    trace << "FinWait1State::Acknowledge Unexpected Acknowledge number" << endl;
+    //trace << "FinWait1State::Acknowledge Unexpected Acknowledge number" << endl;
   }
 }
 
 void FinWait1State::NetClose(TCPConnection* theConnection) {
-  trace << "FinWait1State::Netclose received FIN ACK, sending ACK and fucking off" << endl;
+  //trace << "FinWait1State::Netclose received FIN ACK, sending ACK and fucking off" << endl;
   theConnection->receiveNext += 1;
   theConnection->myTCPSender->sendFlags(0x10); //Send ACK
   theConnection->Kill();
@@ -455,7 +460,7 @@ FinWait2State* FinWait2State::instance() {
 }
 
 void FinWait2State::NetClose(TCPConnection* theConnection) {
-  trace << "FinWait2State::NetClose entered" << endl;
+  //trace << "FinWait2State::NetClose entered" << endl;
   theConnection->receiveNext += 1;
   theConnection->myTCPSender->sendFlags(0x10); //Send ACK
   theConnection->Kill();
@@ -468,6 +473,7 @@ TCPSender::TCPSender(TCPConnection* theConnection,
         myConnection(theConnection),
         myAnswerChain(theCreator->copyAnswerChain()) // Copies InPacket chain!
 {
+  counter = 0;
 }
 
 TCPSender::~TCPSender() {
@@ -510,7 +516,7 @@ void TCPSender::sendFlags(byte theFlags) {
                                            totalSegmentLength,
                                            pseudosum);
   // Send the TCP segment.
-  trace << "SENDFLAGS: Trying to send seq nr: " << LHILO(replyHeader->sequenceNumber) << " with ACK: " << LHILO(replyHeader->acknowledgementNumber) << endl;
+  //trace << "sendFlags: Sending seq nr: " << LHILO(replyHeader->sequenceNumber) << " with ACK: " << LHILO(replyHeader->acknowledgementNumber) << endl;
   myAnswerChain->answer(anAnswer, totalSegmentLength);
   // Deallocate the dynamic memory
   delete anAnswer;
@@ -543,13 +549,26 @@ void TCPSender::sendData(byte* theData, udword theLength) {
   replyHeader->checksum = calculateChecksum(anAnswer,
                                            totalSegmentLength,
                                            pseudosum);
+
   myAnswerChain->answer(anAnswer, totalSegmentLength);
-  myAnswerChain->answer(anAnswer, totalSegmentLength);
+
+/*
+  if (counter != 10) {
+    myAnswerChain->answer(anAnswer, totalSegmentLength);
+    counter += 1;
+  } else {
+    cout << "Throwing this packet away to test retransmit" << endl;
+    counter = 0;
+  }
+*/
+
   myConnection->sendNext += theLength;
   if (myConnection->sendNext > myConnection->sentMaxSeq) {
     myConnection->sentMaxSeq = myConnection->sendNext;
   }
   delete anAnswer;
+  cout << "Core " << ax_coreleft_total() << endl;
+
 }
 
 void TCPSender::sendFromQueue() {
@@ -566,7 +585,7 @@ void TCPSender::sendFromQueue() {
 
   if (myConnection->sendNext < myConnection->sentMaxSeq) {
     trace << "Retransmitting lost seq: " << myConnection->sendNext << endl;
-    trace << "Which contains: " << myConnection->transmitQueue + (myConnection->sendNext - myConnection->firstSeq) << endl;
+    //trace << "Which contains: " << myConnection->transmitQueue + (myConnection->sendNext - myConnection->firstSeq) << endl;
     udword lengthOfRetransmitt = myConnection->sentMaxSeq - myConnection->sendNext; //Try to resend it all
     sendData(myConnection->transmitQueue + (myConnection->sendNext - myConnection->firstSeq), lengthOfRetransmitt);
     //myConnection->myTimer->start(); ???
@@ -580,12 +599,12 @@ void TCPSender::sendFromQueue() {
   //trace << "myWindowSize: " << myConnection->myWindowSize << " sendNext: " << myConnection->sendNext << " sentUnacked: " << myConnection->sentUnAcked << endl;
   udword min = MIN(actualWindowSize, myConnection->theSendLength); //Find largest possible amount of data to send
   min = MIN(min, 1460); //Ethernet MTU is 1500 bytes, IP header + TCP header is 20 + 20 bytes.
-  trace << "actualWindowSize: " << actualWindowSize << " theSendLength: " << myConnection->theSendLength << " min: " << min << endl;
+  //trace << "actualWindowSize: " << actualWindowSize << " theSendLength: " << myConnection->theSendLength << " min: " << min << endl;
 
   if (min > 0) {
     //trace << "Called sendData from sendFromQueue" << endl;
-    trace << "Sending seq: " << myConnection->firstSeq + myConnection->theOffset << endl;
-    trace << "Which contains: " << myConnection->theFirst + myConnection->theOffset << endl;
+    //trace << "Sending seq: " << myConnection->firstSeq + myConnection->theOffset << endl;
+    //trace << "Which contains: " << myConnection->theFirst + myConnection->theOffset << endl;
     sendData(myConnection->theFirst + myConnection->theOffset, min); //Send as much as we can
     myConnection->myTimer->start(); //Start our retransmit timer
     myConnection->theOffset += min; // Update offset
@@ -647,6 +666,7 @@ void TCPInPacket::decode() {
         aConnection->NetClose();
       }
     }
+    delete tcpHeader;
 }
 
 void TCPInPacket::answer(byte* theData, udword theLength) {
@@ -659,6 +679,7 @@ uword TCPInPacket::headerOffset() {
 }
 
 InPacket* TCPInPacket::copyAnswerChain() {
+  //cout << "TCPInPacket called copyAnswerChain" << endl;
   return myFrame->copyAnswerChain();
 }
 
@@ -695,7 +716,7 @@ void RetransmitTimer::start() {
 }
 
 void RetransmitTimer::cancel() {
-    cout << "RetransmitTimer::Cancel called" << endl;
+    //cout << "RetransmitTimer::Cancel called" << endl;
     this->resetTimeOut();
 }
 

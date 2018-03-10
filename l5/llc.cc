@@ -80,7 +80,7 @@ LLCInPacket::decode() {
 void
 LLCInPacket::answer(byte *theData, udword theLength)
 {
-  //cout << "LLCInPacket::answer was called" << endl;
+  //cout << "LLC answer method is calling myFrame->answer" << endl;
   myFrame->answer(theData, theLength);
 }
 
@@ -91,6 +91,7 @@ LLCInPacket::headerOffset()
 }
 
 InPacket* LLCInPacket::copyAnswerChain() {
+  //cout << "LLCInPacket called copyAnswerChain" << endl;
   LLCInPacket* anAnswerPacket = new LLCInPacket(*this); //Create reference IPInPacket
   anAnswerPacket->setNewFrame(myFrame->copyAnswerChain()); //Set the frame to LLC
   return anAnswerPacket;

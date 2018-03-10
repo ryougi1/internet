@@ -433,6 +433,8 @@ class TCPSender
   void sendFromQueue();
   // Send data from the queue
 
+  int counter;
+
  private:
   TCPConnection* myConnection;
   InPacket*      myAnswerChain;

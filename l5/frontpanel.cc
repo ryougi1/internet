@@ -171,7 +171,7 @@ void FrontPanel::doit() {
       cdLedEvent = false;
     }
     if (statusLedEvent) {
-      cout << "Core " << ax_coreleft_total() << endl;
+      //cout << "Core " << ax_coreleft_total() << endl;
       myStatusLED.toggle();
       statusLedEvent = false;
     }
