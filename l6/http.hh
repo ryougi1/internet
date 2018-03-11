@@ -19,6 +19,9 @@ class HTTPServer : public Job
   void handleHeadRequest(char* theData, udword theLength);
   void handlePostRequest(char* theData, udword theLength);
 
+  char* findFileName(char* theData);
+  char* contentTypeFromFileName(char* theFileName);
+
   char* findPathName(char* str);
   char* extractString(char* thePosition, udword theLength);
   udword contentLength(char* theData, udword theLength);

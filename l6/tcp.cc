@@ -309,7 +309,7 @@ void EstablishedState::NetClose(TCPConnection* theConnection) {
 }
 
 void EstablishedState::AppClose(TCPConnection* theConnection) {
-  //trace << "EstablishedState::Appclose received AppClose from TCPSocket" << endl;
+  trace << "EstablishedState::Appclose received AppClose from TCPSocket" << endl;
   theConnection->myState = FinWait1State::instance();
   theConnection->myTCPSender->sendFlags(0x11); //Send FIN ACK
   theConnection->sendNext = theConnection->sendNext + 1; //https://community.apigee.com/articles/7970/tcp-states-explained.html

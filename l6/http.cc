@@ -49,7 +49,7 @@ void HTTPServer::doit() {
   while ((!done)) {
     aData = (char*) mySocket->Read(aLength);
     if (strncmp(aData, "GET ", 4) == 0) {
-      //cout << "DETECTED GET REQUEST" << endl;
+      cout << "DETECTED GET REQUEST" << endl;
       handleGetRequest(aData, aLength);
     }
     if (strncmp(aData, "HEAD", 4) == 0) {
@@ -76,23 +76,46 @@ void HTTPServer::handleGetRequest(char* theData, udword theLength) {
   If file is to be sent, make sure necessary headers are included.
   */
   char* path = findPathName(theData);
-  trace << "path: " << path << endl;
-
-  if (path == NULL) { //Path was either "/" or "/index.htm", return index.htm
+  char* pathAndFile;
+  udword fileLength;
+  byte* responseData;
+  char* initRespLine;
+  char* headerContType;
+  if (path == NULL || path == 0) { //Path was either "/" or "/index.htm", return index.htm
     char* fileName = "index.htm";
-    udword fileLength;
-    byte* responseData = FileSystem::instance().readFile(path, fileName, fileLength);
-    cout << (char*) responseData << endl;
+    responseData = FileSystem::instance().readFile(path, fileName, fileLength);
     //Set initial response line and header lines
-  } else if () { //A path was found
+    initRespLine = "HTTP/1.0 200 OK\r\n";
+    headerContType = "Content-Type: text/html\r\n\r\n";
+  } else { //A path was found
+    cout << "Path is: " << path << endl;
+    //Want to find fileName to get file and fileType for header
+    //GET /private/private.htm HTTP/1.0<CRLF>
+    char* first = strchr(theData, ' ');
+    first++;
+    char* last = strchr(first, ' ');
+    pathAndFile = extractString((char*)first+1, last-first);
+    char* fileName = strrchr(pathAndFile, '/');
+    fileName++;
+    cout << "File name is: " << fileName << endl;
+    responseData = FileSystem::instance().readFile(path, fileName, fileLength);
 
+    initRespLine = "HTTP/1.0 200 OK\r\n";
+    headerContType = contentTypeFromFileName(fileName);
+    cout << initRespLine << endl;
+    cout << headerContType << endl;
   }
 
-  if () { //check if file was not found
-    //write a 404 reply
-    if () { //check if authentication required
-      if () { //check if authentication successfull i.e. path contains /private
-        /**
+  if (responseData == 0) { //check if file was not found
+    initRespLine = "HTTP/1.0 404 Not found\r\n";
+    headerContType = "Content-type: text/html\r\n\r\n";
+    responseData =  "<html><head><title>File not found</title></head>"
+                    "<body><h1>404 Not found</h1></body></html>";
+
+    /**
+    if () { //check if authentication required i.e. path contains /private
+      if () { //check if authentication successfull
+
         Try to find the header field Authorization: Basic in the request.
         Header looks like: Authorization: Basic qWjfhjR124=<CRLF>
         Decode qWjfhjR124= using decodeBase64. The result from the method is a
@@ -100,15 +123,42 @@ void HTTPServer::handleGetRequest(char* theData, udword theLength) {
         invented users with passwords stored in the class HTTPServer and
         decide whether the resource should be sent.
         Could get crowded here, perhaps a private method?
-        */
+
         //write the reply: initial response line, header lines, html files
       } else { //authentication failed
         //write a authentication failed reply
-      }
-    } else { // here if file was found and no auth needed
-      //Write initial response line, header lines, Write html file
+      } */
     }
+    cout << "Calling mysocket->Write" << endl;
+    mySocket->Write((byte*)initRespLine, strlen(initRespLine));
+    mySocket->Write((byte*)headerContType, strlen(headerContType));
+    mySocket->Write(responseData, fileLength);
+// }
+/*
+  delete path;
+  delete fileName;
+  delete responseData;
+  delete initRespLine;
+  delete headerContType;
+  */
+}
+
+
+
+/**
+Takes as input the requested file name, finds out what type of content the
+request is for, and returns the appropriate char sequence with CRLF
+*/
+char* HTTPServer::contentTypeFromFileName(char* theFileName) {
+  char* fullStop = strchr(theFileName, '.');
+  if (strncmp(fullStop, ".htm", 4) == 0) {
+    return "Content-type: text/html\r\n\r\n";
+  } else if (strncmp(fullStop, ".gif", 4) == 0) {
+    return "Content-type: image/gif\r\n\r\n";
+  } else if (strncmp(fullStop, ".jpg", 4) == 0) {
+    return "Content-type: image/jpeg\r\n\r\n";
   }
+  return NULL;
 }
 
 char* HTTPServer::findPathName(char* str) {

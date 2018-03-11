@@ -30,14 +30,12 @@ extern "C"
 
 //----------------------------------------------------------------------------
 //
-
-FileSystem::FileSystem()
-{
-  int slask;
+/*
+FileSystem::FileSystem() {
+  //int slask;
   cout << "FileSystem created." << endl;
-
 }
-
+*/
 //----------------------------------------------------------------------------
 //
 FileSystem&
@@ -56,7 +54,7 @@ bool FileSystem::writeFile(char *path,char *name,
 typedef struct lzhead
 {
         unsigned char           HeadSiz,HeadChk,HeadID[5]; // 0 1 2
-        unsigned char           PacSiz[4];                 // 7 
+        unsigned char           PacSiz[4];                 // 7
         unsigned char           OrgSiz[4];                 // 11
         unsigned char           Ftime[4];                  // 15
         unsigned char           Attr,Level;                // 17
@@ -80,7 +78,7 @@ byte *FileSystem::readFile(char *path,char *name,udword& theLength)
     LzHead *header=(LzHead *)&FileSystem::myFileSystem[curr_size];
     char *file_path;
     udword the_file_size;
-   
+
     curr_size+=header->HeadSiz+2;
 
     curr_file_size=header->PacSiz[0];
@@ -100,14 +98,14 @@ byte *FileSystem::readFile(char *path,char *name,udword& theLength)
 
 
 	//may have found it check path
-	
+
 	if ((header->HeadSiz>27)&&(header->Level==1)&&
 	    (header->Fname[header->name_length+17]==2))
 	  {
 	    byte *file_path=&header->Fname[header->name_length+18];
 	    byte *file_path2=file_path;
 	    udword path_len;
-		
+
 	    endCheck=true;
 
 	    //hitta slut
@@ -143,7 +141,7 @@ byte *FileSystem::readFile(char *path,char *name,udword& theLength)
 	  {
 	    //found it!
 
-	    // calc size and ptr 
+	    // calc size and ptr
 	    theLength=the_file_size;
 	    return file_ptr;
 	  }
@@ -155,27 +153,3 @@ byte *FileSystem::readFile(char *path,char *name,udword& theLength)
 
 
 /****************** END OF FILE fs.cc *************************************/
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
