@@ -3,7 +3,7 @@
 
 /****************** INCLUDE FILES SECTION ***********************************/
 
-#include "tcpsocket.hh"
+#include "job.hh"
 
 /****************** CLASS DEFINITION SECTION ********************************/
 //class TCPSocket;
@@ -16,6 +16,8 @@ class HTTPServer : public Job
 
   void doit();
   void handleGetRequest(char* theData, udword theLength);
+  void handleHeadRequest(char* theData, udword theLength);
+  void handlePostRequest(char* theData, udword theLength);
 
   char* findPathName(char* str);
   char* extractString(char* thePosition, udword theLength);
@@ -25,7 +27,6 @@ class HTTPServer : public Job
 
  private:
    TCPSocket* mySocket;
-
 };
 
 #endif

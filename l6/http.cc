@@ -37,6 +37,11 @@ HTTPServer::HTTPServer(TCPSocket* theSocket) :
 }
 
 void HTTPServer::doit() {
+  /**
+  Every time a page is loaded, starts a new connection and HTTPServer job.
+  Our job to close the connection once we have handled the clients request with
+  the appropriate reponse.
+  */
   udword aLength;
   char* aData;
   bool done = false;
@@ -61,14 +66,48 @@ void HTTPServer::doit() {
 }
 
 void HTTPServer::handleGetRequest(char* theData, udword theLength) {
+  /**
+  Need to consider the following:
+  An absolute path in the file system must be separated into the path and the
+  file name. Fetch the correct file. If file not found, return 404.
+  If file found, check for authentication - a path that contains /private.
+  Depending on successful auth send the file or send a auth fail. If no auth
+  required, send the found file.
+  If file is to be sent, make sure necessary headers are included.
+  */
   char* path = findPathName(theData);
+  trace << "path: " << path << endl;
+
   if (path == NULL) { //Path was either "/" or "/index.htm", return index.htm
     char* fileName = "index.htm";
-    udword* fileLength;
-    byte* responseData = FileSystem::instance().readFile(path, fileName, *fileLength);
+    udword fileLength;
+    byte* responseData = FileSystem::instance().readFile(path, fileName, fileLength);
     cout << (char*) responseData << endl;
-  } else { //A path was found
-  //TODO:
+    //Set initial response line and header lines
+  } else if () { //A path was found
+
+  }
+
+  if () { //check if file was not found
+    //write a 404 reply
+    if () { //check if authentication required
+      if () { //check if authentication successfull i.e. path contains /private
+        /**
+        Try to find the header field Authorization: Basic in the request.
+        Header looks like: Authorization: Basic qWjfhjR124=<CRLF>
+        Decode qWjfhjR124= using decodeBase64. The result from the method is a
+        string of the form user:password. Compare the string with a few
+        invented users with passwords stored in the class HTTPServer and
+        decide whether the resource should be sent.
+        Could get crowded here, perhaps a private method?
+        */
+        //write the reply: initial response line, header lines, html files
+      } else { //authentication failed
+        //write a authentication failed reply
+      }
+    } else { // here if file was found and no auth needed
+      //Write initial response line, header lines, Write html file
+    }
   }
 }
 
