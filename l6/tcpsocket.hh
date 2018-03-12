@@ -13,9 +13,6 @@
 /****************** INCLUDE FILES SECTION ***********************************/
 
 #include "job.hh"
-#include "threads.hh"
-#include "tcp.hh"
-
 
 /****************** CLASS DEFINITION SECTION ********************************/
 
@@ -88,6 +85,7 @@ class TCPSocket
 
   bool  eofFound;
   // Connection has been closed by the remote host
+  bool RSTFlag;
 };
 
 /*****************************************************************************

@@ -474,6 +474,7 @@ void Ethernet::transmittPacket(byte *theData, udword theLength) {
   // STOFF: Tell Etrax to start sending by setting the 'statusCommand' byte of
   // the first page in the packet to 0x10!
   txPagePointer->statusCommand = 0x10; //Send me
+  delete [] theData;
   *(volatile byte*)R_TR_CMD = 0x12;
 }
 
@@ -533,9 +534,6 @@ void EthernetInPacket::decode() {
   LLCInPacket* llc = new LLCInPacket(myData, myLength, this, myDestinationAddress, mySourceAddress, myTypeLen);
   //LLCInPacket llc(myData, myLength, this, myDestinationAddress, mySourceAddress, myTypeLen);
   llc->decode();
-
-  //delete myData;
-  //delete myFrame;
   delete llc;
   Ethernet::instance().returnRXBuffer();
 }
@@ -544,29 +542,25 @@ void EthernetInPacket::decode() {
 void EthernetInPacket::answer(byte* theData, udword theLength){
   //cout << "EthernetInPacket::answer was called" << endl;
 
-  // Upper layers may choose to send an answer to the sender of this packet
-  // prepend the appropriate ethernet information and send the packet
-  EthernetHeader* responseHeader = new EthernetHeader(); //Create a new header for response
+  theData -= Ethernet::ethernetHeaderLength;
+  theLength += Ethernet::ethernetHeaderLength;
+
+  EthernetHeader* responseHeader = (EthernetHeader*) theData; //Create a new header for response
   responseHeader->destinationAddress = mySourceAddress; //Use previously saved info to fill in header
   responseHeader->sourceAddress = Ethernet::instance().myAddress(); //Use existing constant to set source
   responseHeader->typeLen = ((myTypeLen & 0x00ff) << 8) | ((myTypeLen & 0xff00) >> 8); //Flip endian again
 
-  theData -= headerOffset(); //Move pointer back to make space for header
-  memcpy(theData, responseHeader, headerOffset());
-  theLength += headerOffset(); //Adapt length to include header
   //Do not add CRC, nore make room for it, will be done automatically after the
   //address of endPointer in transmittPacket (see FAQ).
   //cout << "Called transmittPacket" << endl;
   //cout << "Ethernet answer method is calling transmittPacket" << endl;
   Ethernet::instance().transmittPacket(theData, theLength);
-  delete responseHeader;
-  //delete[] theData;
 }
 
 uword EthernetInPacket::headerOffset() {
   // Return the length of the ethernet header,
   // see Ethernet::ethernetHeaderLength
-  return Ethernet::instance().ethernetHeaderLength;
+  return Ethernet::ethernetHeaderLength;
 }
 
 InPacket* EthernetInPacket::copyAnswerChain() {

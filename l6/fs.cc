@@ -30,12 +30,14 @@ extern "C"
 
 //----------------------------------------------------------------------------
 //
-/*
+
 FileSystem::FileSystem() {
   //int slask;
-  cout << "FileSystem created." << endl;
+  //cout << "FileSystem created." << endl;
+  dynamicPage = NULL;
+  lengthOfDynamicPage = 0;
 }
-*/
+
 //----------------------------------------------------------------------------
 //
 FileSystem&
@@ -48,7 +50,31 @@ FileSystem::instance()
 bool FileSystem::writeFile(char *path,char *name,
 			   byte *theData,udword theLength)
 {
-  return false;
+  /**
+  Ignore path and name for now, method is only called for one specific page -
+  the dynamic page. NOTE: '\0' is added before method call, so no need to
+  account for it here.
+  */
+  if (dynamicPage != NULL) {
+    delete dynamicPage; //Already exists, so delete the old one
+    dynamicPage = NULL; //Reinitiate
+  }
+  dynPageLength = theLength; //Set the length
+  /**
+  Malloc:
+  On success returns a pointer to the memory block allocated by the function.
+  The type of this pointer is always void*, which can be cast to the desired
+  type of data pointer in order to be dereferenceable.
+  If the function failed to allocate the requested block of memory, a null
+  pointer is returned.
+  */
+  dynamicPage = (byte*) malloc(theLength);
+  if (dynamicPage == NULL) {
+    cout << "Malloc returned null pointer, unable to allocate memory for dynamic page" << endl;
+    return false;
+  }
+  memcpy(dynamicPage, theData, theLength);
+  return true;
 }
 
 typedef struct lzhead
@@ -69,6 +95,12 @@ const byte FileSystem::myFileSystem[]=
 
 byte *FileSystem::readFile(char *path,char *name,udword& theLength)
 {
+  //Looking for dynamic page, and it has been set.
+  if(strncmp(name, "dynamic.htm", 11) == 0 && dynamicPage != NULL) {
+    theLength = lengthOfDynamicPage; //Set the length variable
+    return dynamicPage; //Return the dynamic page
+  }
+
   int file_size=sizeof(FileSystem::myFileSystem);
   int curr_size=0;
   int curr_file_size=0;

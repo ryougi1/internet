@@ -57,12 +57,78 @@ void HTTPServer::doit() {
     }
     if (strncmp(aData, "POST", 4) == 0) {
       cout << "DETECTED POST REQUEST" << endl;
+      /**
+      Currently only supports one more read, could cause trouble in the future.
+      Furthermore, if support were to be added, keep in mind contentLength is
+      amount of bytes of DATA IN THE BODY, whilst amountReceived or aLength
+      also includes the HTTP header data.
+      */
+      /**
+      udword theContentLength = contentLength(aData, aLength);
+      udword amountofBodyReceived = getBodyAmount(aData, aLength);
+      **/
+
+        /*
+        char* moreData = (char*) mySocket->Read(aLength);
+        char* allData = new char[amountReceived+aLength];
+        memcpy(allData, aData, amountReceived);
+        memcpy(allData + amountReceived, moreData, aLength);
+        handlePostRequest(allData, amountReceived + aLength);
+        delete [] moreData;
+        delete [] allData;
+        */
+      }
     }
     done = true;
   }
   delete aData;
   cout << "HTTPServer is quitting" << endl;
   mySocket->Close();
+}
+
+void HTTPServer::handlePostRequest(char* theData, udword theLength) {
+  /**
+  POST request should only be possible for ''/private/private.htm'. If that is
+  the case, decode the file content with decodeForm, add a '\0', and write the
+  file to the file system. Lastly, send the appropriate response to the client.
+  */
+  /*
+  POST /private/private.htm HTTP/1.0<CRLF>
+  [Header line 1]<CRLF>
+  Content-Length: 339<CRLF>
+  [Header line n]<CRLF>
+  <CRLF>
+  dynamic.htm=%0D%3Chtml%3E%0D%3Chead%3E%0D%3Ctitle%3EDynamic+page%3C%2Ftitl
+  e%3E%0D%3C%2Fhead%3E%0D%3Cbody+b....
+  */
+  /*
+  char* path = findPathName(theData);
+  byte* responseData;
+  char* initRespLine;
+  char* headerContType;
+
+  if (strncmp(path, (char*)"private", 7) == 0) { //Correct
+
+  } else { //Here if POST came with from path
+    initRespLine = "HTTP/1.0 405 Method Not Allowed\r\n";
+    headerContType = "Content-Type: text/html\r\n\r\n";
+    responseData =  (byte*) "<html><head><title>What you playing at?</title></head>"
+                            "<body><h1>405 Method Not Allowed</h1></body></html>";
+  }
+  cout << "Calling mysocket->Write" << endl;
+  mySocket->Write((byte*)initRespLine, strlen(initRespLine));
+  mySocket->Write((byte*)headerContType, strlen(headerContType));
+  mySocket->Write(responseData, fileLength);
+
+  delete path;
+  delete responseData;
+  delete initRespLine;
+  delete headerContType;
+  */
+}
+
+void HTTPServer::handleHeadRequest(char* theData, udword theLength) {
+  
 }
 
 void HTTPServer::handleGetRequest(char* theData, udword theLength) {
@@ -76,74 +142,101 @@ void HTTPServer::handleGetRequest(char* theData, udword theLength) {
   If file is to be sent, make sure necessary headers are included.
   */
   char* path = findPathName(theData);
-  char* pathAndFile;
   udword fileLength;
   byte* responseData;
   char* initRespLine;
   char* headerContType;
-  if (path == NULL || path == 0) { //Path was either "/" or "/index.htm", return index.htm
-    char* fileName = "index.htm";
+  if (path == NULL || path == 0) { //Path was either "/" or "/index.htm"
+    char* fileName = "index.htm"; //Manually set file name since we know what file to read and send
+
     responseData = FileSystem::instance().readFile(path, fileName, fileLength);
-    //Set initial response line and header lines
     initRespLine = "HTTP/1.0 200 OK\r\n";
     headerContType = "Content-Type: text/html\r\n\r\n";
-  } else { //A path was found
-    cout << "Path is: " << path << endl;
-    //Want to find fileName to get file and fileType for header
-    //GET /private/private.htm HTTP/1.0<CRLF>
-    char* first = strchr(theData, ' ');
-    first++;
-    char* last = strchr(first, ' ');
-    pathAndFile = extractString((char*)first+1, last-first);
-    char* fileName = strrchr(pathAndFile, '/');
-    fileName++;
-    cout << "File name is: " << fileName << endl;
-    responseData = FileSystem::instance().readFile(path, fileName, fileLength);
 
+  } else { //A absolute path was found
+    cout << "Path before manipulation is: " << path << endl;
+    //Want to find fileName to get file, and fileType for header
+    char* first = strchr(theData, ' '); //Points to blank space right before absolute path
+    first++; //Need to move of the blankspace onto the '/' for next line of code to work
+    char* last = strchr(first, ' '); //Points to blank space right after absolute path
+    path = extractString((char*)first+1, last-first); // +1 to get off '/' and onto the path
+    cout << "Path after manipulation is: " << path << endl;
+    char* fileName = strrchr(path, '/'); //Points to '/' just before file name
+    fileName++; //Move onto file name
+    cout << "File name is: " << fileName << endl;
+
+    responseData = FileSystem::instance().readFile(path, fileName, fileLength);
     initRespLine = "HTTP/1.0 200 OK\r\n";
     headerContType = contentTypeFromFileName(fileName);
-    cout << initRespLine << endl;
-    cout << headerContType << endl;
+    cout << "Header: " << headerContType << endl;
   }
 
+  //Checks go here
   if (responseData == 0) { //check if file was not found
+    cout << "File not found, returning 404 error response" << endl;
     initRespLine = "HTTP/1.0 404 Not found\r\n";
     headerContType = "Content-type: text/html\r\n\r\n";
-    responseData =  "<html><head><title>File not found</title></head>"
-                    "<body><h1>404 Not found</h1></body></html>";
-
-    /**
-    if () { //check if authentication required i.e. path contains /private
-      if () { //check if authentication successfull
-
-        Try to find the header field Authorization: Basic in the request.
-        Header looks like: Authorization: Basic qWjfhjR124=<CRLF>
-        Decode qWjfhjR124= using decodeBase64. The result from the method is a
-        string of the form user:password. Compare the string with a few
-        invented users with passwords stored in the class HTTPServer and
-        decide whether the resource should be sent.
-        Could get crowded here, perhaps a private method?
-
-        //write the reply: initial response line, header lines, html files
-      } else { //authentication failed
-        //write a authentication failed reply
-      } */
+    responseData =  (byte*) "<html><head><title>File not found</title></head>"
+                            "<body><h1>404 Not found</h1></body></html>";
+    if (strncmp(path, "private", 7) == 0) { //check if authentication required i.e. path contains private
+      cout << "Inside authentication check" << endl;
+      if (!authSuccessful(theData)) { //check if authentication failed
+        cout << "Authentication failed - sending 401 error" << endl;
+        initRespLine = "HTTP/1.0 401 Unauthorized\r\n";
+        headerContType = "Content-type: text/html\r\n\r\n";
+        responseData = (byte*)  "<html><head><title>401 Unauthorized</title></head>"
+                                "<body><h1>401 Unauthorized</h1></body></html>";
+      }
+      cout << "Authentication succesfull - sending private file" << endl;
     }
-    cout << "Calling mysocket->Write" << endl;
-    mySocket->Write((byte*)initRespLine, strlen(initRespLine));
-    mySocket->Write((byte*)headerContType, strlen(headerContType));
-    mySocket->Write(responseData, fileLength);
-// }
-/*
-  delete path;
-  delete fileName;
-  delete responseData;
-  delete initRespLine;
-  delete headerContType;
-  */
+ }
+ cout << "Calling mysocket->Write" << endl;
+ mySocket->Write((byte*)initRespLine, strlen(initRespLine));
+ mySocket->Write((byte*)headerContType, strlen(headerContType));
+ mySocket->Write(responseData, fileLength);
+
+ delete path;
+ delete pathAndFile;
+ delete fileName;
+ delete responseData;
+ delete initRespLine;
+ delete headerContType;
 }
 
+/**
+Try to find the header field Authorization: Basic in the request. Header looks
+like: Authorization: Basic qWjfhjR124=<CRLF>. Decode qWjfhjR124= using
+decodeBase64. The result from the method is a string of the form user:password.
+Compare the string with a few invented users with passwords stored in the
+class HTTPServer and decide whether the resource should be sent.
+*/
+bool HTTPServer::authSuccessful(char* theData) {
+  char* toCompare = "Authorization:";
+  char* authHeadLine = strstr(theData, toCompare); //Pointer to first occurence of toCompare
+  if (authHeadLine == NULL) { //Request did not include login details
+    return false;
+  }
+  authHeadLine = strchr(authHeadLine, ' '); //Move inbetween Authgrization and Basic
+  authHeadLine = strchr(authHeadLine, ' '); //Move inbetween Basic and base64 encoded login details
+  authHeadLine++; //Move onto base64 encoded login details
+  char* endOfAuthHeadLine = strchr(authHeadLine, '\r\n'); //Pointer to the CRLF after the base64 encoded login details
+  char* theAuthDetails = extractString(authHeadLine, (udword)(endOfAuthHeadLine-authHeadLine));
 
+  if (theAuthDetails == NULL) { //Did not enter any auth details
+    return false;
+  } else {
+    char* decodedAuthDetails = decodeBase64(theAuthDetails);
+    if (strncmp("admin:admin", decodedAuthDetails, 11) == 0) {
+      delete theAuthDetails;
+      delete decodedAuthDetails;
+      return true;
+    } else {
+      delete theAuthDetails;
+      delete decodedAuthDetails;
+      return false;
+    }
+  }
+}
 
 /**
 Takes as input the requested file name, finds out what type of content the

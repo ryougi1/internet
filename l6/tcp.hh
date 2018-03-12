@@ -14,7 +14,6 @@
 #include "inpacket.hh"
 #include "ipaddr.hh"
 #include "queue.hh"
-#include "ip.hh"
 #include "tcpsocket.hh"
 #include "timer.hh"
 //#include "http.hh"
@@ -83,7 +82,6 @@ class TCP
 *%***************************************************************************/
 class TCPState;
 class TCPSender;
-class TCPSocket;
 class RetransmitTimer;
 class TCPConnection
 {
@@ -145,21 +143,25 @@ class TCPConnection
   TCPState*  myState;
   TCPSocket* mySocket;
   RetransmitTimer* myTimer;
+  Semaphore* windowSemaphore;
+
 
   //Lab 5 variables for transmission queue
   byte* transmitQueue; // a reference to the data to be sent,
   udword queueLength; // the number of data to be sent
   udword firstSeq; // the sequence number of the first byte in the queue.
 
-  // the first position in the queue relative the variable transmitQueue to send from
-  udword theOffset;
-  //the first byte to send in the segment relative the variable transmitQueue
-  byte* theFirst;
-  // the number of byte to send in a single segment
-  udword theSendLength;
+  udword theOffset();
+  //the first position in the queue relative the variable transmitQueue to send from ,
+  byte* theFirst();
+  //the first byte to send in the segment relative the variable transmitQueue,
+  udword theSendLength();
+  //the number of byte to send in a single segment.
+  void RSTFlagReceived();
+
+  bool RSTFlag;
 
   udword myWindowSize; // contains the offered window size from each segment.
-
   udword sentMaxSeq; // For retransmitt
 
 };
@@ -367,7 +369,7 @@ class FinWait1State : public TCPState
   void Acknowledge(TCPConnection* theConnection,
                    udword theAcknowledgementNumber);
   // Handle incoming Acknowledgement
-  void NetClose(TCPConnection* theConnection);
+
  protected:
   FinWait1State() {}
 };
@@ -393,13 +395,6 @@ class FinWait2State : public TCPState
   void NetClose(TCPConnection* theConnection);
   // Handle an incoming FIN segment
 
- /**
-  void Receive(TCPConnection* theConnection,
-               udword theSynchronizationNumber,
-               byte*  theData,
-               udword theLength);
-  // Handle incoming data
-*/ //should be possible but not necessary in our scope
  protected:
   FinWait2State() {}
 };
@@ -422,9 +417,6 @@ class TCPSender
   TCPSender(TCPConnection* theConnection,
 	        InPacket*      theCreator);
   ~TCPSender();
-
-  void sendFromQueue(byte*  theData, udword theLength);
-  //TODO: Might be wrong
 
   void sendFlags(byte theFlags);
   // Send a flag segment without data.

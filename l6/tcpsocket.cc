@@ -11,7 +11,11 @@ extern "C"
 #include "system.h"
 }
 
+#include "iostream.hh"
+#include "tcp.hh"
+#include "ip.hh"
 #include "tcpsocket.hh"
+#include "threads.hh"
 #include "sp_alloc.h"
 
 
@@ -29,7 +33,8 @@ TCPSocket::TCPSocket(TCPConnection* theConnection) :
   myConnection(theConnection),
   myReadSemaphore(Semaphore::createQueueSemaphore("readSemaphore", 0)),
   myWriteSemaphore(Semaphore::createQueueSemaphore("writeSemaphore", 0)),
-  eofFound(false)
+  eofFound(false),
+  RSTFlag(false)
 {
 }
 
@@ -60,6 +65,9 @@ bool TCPSocket::isEof(){
 // Semaphore blocks write until data is transmitted AND acked.
 void TCPSocket::Write(byte* theData, udword theLength) {
   //cout << "Inside TCPSocket::Write" << endl;
+  if (myConnection->RSTFlag) {
+    return;
+  }
   myConnection->Send(theData, theLength);
   myWriteSemaphore->wait(); // Wait until the data is acknowledged
 }
@@ -89,9 +97,6 @@ void TCPSocket::socketEof() {
   myReadSemaphore->signal();
 }
 
-
-
-
 /****************** SimpleApplication *************************/
 
 // Constructor. The application is created by class TCP when a connection is
@@ -110,7 +115,7 @@ void SimpleApplication::doit(){
   byte* aData;
   bool done = false;
   //cout << "Before WHILE: " << done << " : " << mySocket->isEof() << endl;
-  while ((!done)) {
+  while (!done && !mySocket->isEof()) {
     aData = mySocket->Read(aLength);
     if (aLength > 0) {
       if ((char)*aData == 'q') {

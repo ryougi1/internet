@@ -13,6 +13,7 @@ extern "C"
 #include "ip.hh"
 #include "icmp.hh"
 #include "ipaddr.hh"
+#include "tcp.hh"
 
 //#define D_LLC
 #ifdef D_ARP
@@ -45,7 +46,6 @@ InPacket(theData, theLength, theFrame) {
 
 void IPInPacket::decode() {
   IPHeader* ipHeader = (IPHeader *) myData;
-  IPAddress myIp(130,235,200,115); //Needed for the if statement
   /**
   The only packets to be processed are those addressed directly to the server,
   all IP broadcasts may be ignored. Check if the field destination IP address
@@ -62,7 +62,7 @@ void IPInPacket::decode() {
   Make sure the packet is not fragmented by a check that the field
   fragmentFlagsNOffset (defined in the class IPHeader) & 0x3FFF is zero.
   */
-  if ((ipHeader->destinationIPAddress == myIp) &&
+  if ((ipHeader->destinationIPAddress == IP::instance().myAddress()) &&
         (ipHeader->versionNHeaderLength == 0x45) &&
         (HILO(ipHeader->fragmentFlagsNOffset) & 0x3FFF) == 0) {
         /**
@@ -101,14 +101,18 @@ void IPInPacket::decode() {
 //
 void IPInPacket::answer(byte *theData, udword theLength) {
   //cout << "IPInPacket::answer was called" << endl;
-  IPHeader* replyHeader = new IPHeader();
+
+  theData -= IP::ipHeaderLength;
+  theLength += IP::ipHeaderLength;
+
+  IPHeader* replyHeader = (IPHeader*) theData;
   /**
   Set the version field to 4.
   Set the header length field to 5.
   */
   replyHeader->versionNHeaderLength = 0x45;
   replyHeader->TypeOfService = 0; //Set the type of service field to 0.
-  replyHeader->totalLength = HILO(theLength + IP::ipHeaderLength); //Calculate and set the total length field.
+  replyHeader->totalLength = HILO(theLength); //Calculate (done previous) and set the total length field.
   /**
   Set the identification field to a unique sequential number,
   e.g. the value of a global variable which is incremented each time an IP packet is sent.
@@ -120,7 +124,7 @@ void IPInPacket::answer(byte *theData, udword theLength) {
   replyHeader->protocol = myProtocol; //Set the field protocol to the value saved in the decoding process.
   replyHeader->headerChecksum = 0; //Set the checksum field to 0 in to prepare for the checksum calculation.
   IPAddress myIp(130,235,200,115);
-  replyHeader->sourceIPAddress = myIp; //Set the field source IP address to the IP address of your server.
+  replyHeader->sourceIPAddress = IP::instance().myAddress(); //Set the field source IP address to the IP address of your server.
   replyHeader->destinationIPAddress = mySourceIPAddress; //Set the field destination IP address to the source IP address saved in the decoding process.
   /**
   Calculate the checksum of the IP header with the provided function
@@ -131,12 +135,8 @@ void IPInPacket::answer(byte *theData, udword theLength) {
   */
   replyHeader->headerChecksum = calculateChecksum((byte*)replyHeader, IP::ipHeaderLength, 0);
 
-  theData -= IP::ipHeaderLength;
-  memcpy(theData, replyHeader, IP::ipHeaderLength);
-  theLength += IP::ipHeaderLength;
   //cout << "Ip answer method is calling myFrame->answer" << endl;
   myFrame->answer(theData, theLength);
-  delete replyHeader;
 }
 
 uword IPInPacket::headerOffset() {
