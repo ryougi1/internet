@@ -59,7 +59,7 @@ bool FileSystem::writeFile(char *path,char *name,
     delete dynamicPage; //Already exists, so delete the old one
     dynamicPage = NULL; //Reinitiate
   }
-  dynPageLength = theLength; //Set the length
+  lengthOfDynamicPage = theLength; //Set the length
   /**
   Malloc:
   On success returns a pointer to the memory block allocated by the function.

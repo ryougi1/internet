@@ -92,7 +92,7 @@ void TCPSocket::socketDataSent() {
 }
 
 void TCPSocket::socketEof() {
-  cout << "socketEOf was called" << endl;
+  //cout << "socketEOf was called" << endl;
   eofFound = true;
   myReadSemaphore->signal();
 }
@@ -132,7 +132,7 @@ void SimpleApplication::doit(){
     delete aData;
     //cout << "AFTER WHILE: " << done << " : " << mySocket->isEof() << endl;
   }
-  cout << "SimpleApplication::doIt is bailing out holmes" << endl;
+  //cout << "SimpleApplication::doIt is bailing out holmes" << endl;
   mySocket->Close();
 }
 

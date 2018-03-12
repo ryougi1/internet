@@ -49,14 +49,14 @@ void HTTPServer::doit() {
   while ((!done)) {
     aData = (char*) mySocket->Read(aLength);
     if (strncmp(aData, "GET ", 4) == 0) {
-      cout << "DETECTED GET REQUEST" << endl;
+      //cout << "DETECTED GET REQUEST" << endl;
       handleGetRequest(aData, aLength);
     }
     if (strncmp(aData, "HEAD", 4) == 0) {
-      cout << "DETECTED HEAD REQUEST" << endl;
+      //cout << "DETECTED HEAD REQUEST" << endl;
     }
     if (strncmp(aData, "POST", 4) == 0) {
-      cout << "DETECTED POST REQUEST" << endl;
+      //cout << "DETECTED POST REQUEST" << endl;
       /**
       Currently only supports one more read, could cause trouble in the future.
       Furthermore, if support were to be added, keep in mind contentLength is
@@ -77,12 +77,12 @@ void HTTPServer::doit() {
         delete [] moreData;
         delete [] allData;
         */
-      }
+
     }
     done = true;
   }
   delete aData;
-  cout << "HTTPServer is quitting" << endl;
+  //cout << "HTTPServer is quitting" << endl;
   mySocket->Close();
 }
 
@@ -128,7 +128,7 @@ void HTTPServer::handlePostRequest(char* theData, udword theLength) {
 }
 
 void HTTPServer::handleHeadRequest(char* theData, udword theLength) {
-  
+
 }
 
 void HTTPServer::handleGetRequest(char* theData, udword theLength) {
@@ -152,23 +152,28 @@ void HTTPServer::handleGetRequest(char* theData, udword theLength) {
     responseData = FileSystem::instance().readFile(path, fileName, fileLength);
     initRespLine = "HTTP/1.0 200 OK\r\n";
     headerContType = "Content-Type: text/html\r\n\r\n";
+    delete fileName;
 
   } else { //A absolute path was found
-    cout << "Path before manipulation is: " << path << endl;
+    //cout << "Path is: " << path << endl;
     //Want to find fileName to get file, and fileType for header
     char* first = strchr(theData, ' '); //Points to blank space right before absolute path
     first++; //Need to move of the blankspace onto the '/' for next line of code to work
     char* last = strchr(first, ' '); //Points to blank space right after absolute path
-    path = extractString((char*)first+1, last-first); // +1 to get off '/' and onto the path
-    cout << "Path after manipulation is: " << path << endl;
-    char* fileName = strrchr(path, '/'); //Points to '/' just before file name
+    char* pathAndFile = extractString((char*)first+1, last-first); // +1 to get off '/' and onto the path
+    //cout << "pathAndFile is: " << pathAndFile << endl;
+    char* fileName = strrchr(pathAndFile, '/'); //Points to '/' just before file name
     fileName++; //Move onto file name
-    cout << "File name is: " << fileName << endl;
+    //cout << "File name is: " << fileName << endl;
 
     responseData = FileSystem::instance().readFile(path, fileName, fileLength);
     initRespLine = "HTTP/1.0 200 OK\r\n";
     headerContType = contentTypeFromFileName(fileName);
-    cout << "Header: " << headerContType << endl;
+    //cout << "Header: " << headerContType << endl;
+    delete first;
+    delete last;
+    delete pathAndFile;
+    delete fileName;
   }
 
   //Checks go here
@@ -176,31 +181,31 @@ void HTTPServer::handleGetRequest(char* theData, udword theLength) {
     cout << "File not found, returning 404 error response" << endl;
     initRespLine = "HTTP/1.0 404 Not found\r\n";
     headerContType = "Content-type: text/html\r\n\r\n";
-    responseData =  (byte*) "<html><head><title>File not found</title></head>"
+    responseData =  (byte*) "<html><head><title>File not found</title></head>\r\n"
                             "<body><h1>404 Not found</h1></body></html>";
+  } else {
     if (strncmp(path, "private", 7) == 0) { //check if authentication required i.e. path contains private
       cout << "Inside authentication check" << endl;
       if (!authSuccessful(theData)) { //check if authentication failed
         cout << "Authentication failed - sending 401 error" << endl;
         initRespLine = "HTTP/1.0 401 Unauthorized\r\n";
-        headerContType = "Content-type: text/html\r\n\r\n";
-        responseData = (byte*)  "<html><head><title>401 Unauthorized</title></head>"
+        headerContType =  "Content-type: text/html\r\n"
+                          "WWW-Authenticate: Basic realm=""private""\r\n\r\n";
+        responseData = (byte*)  "<html><head><title>401 Unauthorized</title></head>\r\n"
                                 "<body><h1>401 Unauthorized</h1></body></html>";
       }
-      cout << "Authentication succesfull - sending private file" << endl;
     }
- }
- cout << "Calling mysocket->Write" << endl;
- mySocket->Write((byte*)initRespLine, strlen(initRespLine));
- mySocket->Write((byte*)headerContType, strlen(headerContType));
- mySocket->Write(responseData, fileLength);
+  }
 
- delete path;
- delete pathAndFile;
- delete fileName;
- delete responseData;
- delete initRespLine;
- delete headerContType;
+  cout << "Calling mysocket->Write" << endl;
+  mySocket->Write((byte*)initRespLine, strlen(initRespLine));
+  mySocket->Write((byte*)headerContType, strlen(headerContType));
+  mySocket->Write(responseData, fileLength);
+
+  delete path;
+  delete responseData;
+  delete initRespLine;
+  delete headerContType;
 }
 
 /**
@@ -211,28 +216,35 @@ Compare the string with a few invented users with passwords stored in the
 class HTTPServer and decide whether the resource should be sent.
 */
 bool HTTPServer::authSuccessful(char* theData) {
+  cout << "In authSuccessful method" << endl;
   char* toCompare = "Authorization:";
   char* authHeadLine = strstr(theData, toCompare); //Pointer to first occurence of toCompare
   if (authHeadLine == NULL) { //Request did not include login details
     return false;
   }
-  authHeadLine = strchr(authHeadLine, ' '); //Move inbetween Authgrization and Basic
+  authHeadLine = strchr(authHeadLine, ' '); //Move inbetween Authorization and Basic
+  authHeadLine++;
   authHeadLine = strchr(authHeadLine, ' '); //Move inbetween Basic and base64 encoded login details
   authHeadLine++; //Move onto base64 encoded login details
   char* endOfAuthHeadLine = strchr(authHeadLine, '\r\n'); //Pointer to the CRLF after the base64 encoded login details
   char* theAuthDetails = extractString(authHeadLine, (udword)(endOfAuthHeadLine-authHeadLine));
 
   if (theAuthDetails == NULL) { //Did not enter any auth details
+    cout << "authSuccessful check says you didn't enter any details" << endl;
     return false;
   } else {
     char* decodedAuthDetails = decodeBase64(theAuthDetails);
+    cout << "theAuthDetails: " << theAuthDetails << endl;
+    cout << "decodedAuthDetails: " << decodedAuthDetails << endl;
     if (strncmp("admin:admin", decodedAuthDetails, 11) == 0) {
       delete theAuthDetails;
       delete decodedAuthDetails;
+      cout << "authSuccessful check username:password was correct" << endl;
       return true;
     } else {
       delete theAuthDetails;
       delete decodedAuthDetails;
+      cout << "authSuccessful check username:password was incorrect" << endl;
       return false;
     }
   }

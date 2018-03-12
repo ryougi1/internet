@@ -160,6 +160,7 @@ class TCPConnection
   void RSTFlagReceived();
 
   bool RSTFlag;
+  bool finSent;
 
   udword myWindowSize; // contains the offered window size from each segment.
   udword sentMaxSeq; // For retransmitt

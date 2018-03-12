@@ -123,7 +123,6 @@ void IPInPacket::answer(byte *theData, udword theLength) {
   replyHeader->timeToLive = 0x40; //Set the time to live field to 64, which is the default in TCP/IP.
   replyHeader->protocol = myProtocol; //Set the field protocol to the value saved in the decoding process.
   replyHeader->headerChecksum = 0; //Set the checksum field to 0 in to prepare for the checksum calculation.
-  IPAddress myIp(130,235,200,115);
   replyHeader->sourceIPAddress = IP::instance().myAddress(); //Set the field source IP address to the IP address of your server.
   replyHeader->destinationIPAddress = mySourceIPAddress; //Set the field destination IP address to the source IP address saved in the decoding process.
   /**
