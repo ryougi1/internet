@@ -19,6 +19,7 @@ class HTTPServer : public Job
   void handleHeadRequest(char* theData, udword theLength);
   void handlePostRequest(char* theData, udword theLength);
 
+  char* moveToBody(char* theData);
   bool authSuccessful(char* theData);
   char* findFileName(char* theData);
   char* contentTypeFromFileName(char* theFileName);

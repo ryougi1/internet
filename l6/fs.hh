@@ -35,7 +35,8 @@ class FileSystem
 
   static FileSystem& instance();
 
-  bool writeFile(char *path,char *name,byte *theData,udword theLength);
+  //bool writeFile(char *path,char *name,byte *theData,udword theLength);
+  bool writeFile(byte *theData, udword theLength);
   // true if the write was done ie if enough memory is present
 
   byte *readFile(char *path,char *name,udword& theLength);

@@ -47,9 +47,8 @@ FileSystem::instance()
   return myInstance;
 }
 
-bool FileSystem::writeFile(char *path,char *name,
-			   byte *theData,udword theLength)
-{
+//bool FileSystem::writeFile(char *path,char *name, byte *theData,udword theLength) {
+bool FileSystem::writeFile(byte *theData, udword theLength) {
   /**
   Ignore path and name for now, method is only called for one specific page -
   the dynamic page. NOTE: '\0' is added before method call, so no need to
