@@ -58,50 +58,17 @@ void HTTPServer::doit() {
     }
     if (strncmp(aData, "POST", 4) == 0) {
       //cout << "DETECTED POST REQUEST" << endl;
-      /**
-      Here we have to account of the fact that not all POST data is received in
-      a single segment, could be split over multiple segments. Use the provided
-      method contentLength (number of bytes of data in the body of the request)
-      to keep track of how much is left. When it has all been received, call
-      handlePostRequest, but until then, keep filling the receivebuffer.
-      */
 
-      char* fileBeginning = aData;
-      fileBeginning = strcat(fileBeginning, "\r\n\r\n");
-      udword theContentLength = contentLength(aData, aLength);
+      /**The header is sent over two segments*/
+      udword addLength = 0;
+      char* addData = (char*) mySocket->Read(addData);
+      char* completeHeader = new char[aLength + addLength];
+      memcpy(completeHeader, aData, aLength);
+      memcpy(completeHeader + aLength, addData, addLength);
 
-      /**Noticed that the header is sent over two segments
-      udword moreHeaderLength = 0;
-      aData = (char*) mySocket->Read(moreHeaderLength);
-      cout << "Second segment: " << aData << endl;
-      //fileBeginning = strcat(fileBeginning, aData);
-      //char* body = moveToBody(aData);
-      */
-      char* body;
-      //udword amountofBodyReceived = strlen(body);
-      udword amountofBodyReceived = 0;
-      udword totalLength = aLength;
-
-      while (amountofBodyReceived < theContentLength) {
-        cout << "Did not receive all of theContentLength" << endl;
-        aData = (char*) mySocket->Read(aLength); //Read next segment
-        cout << "Second read: " << aData << endl;
-        cout << "Length of second read: " << aLength << endl;
-        body = moveToBody(aData); //Pointer to body of the received segment
-        //cout << "After first segment, received body: " << body << endl;
-        fileBeginning = strcat(fileBeginning, body); //Concatenate body to end of fileBeginning
-        amountofBodyReceived += strlen(body); //Update so we can exit while
-        totalLength += strlen(body);
-        cout << "amountofBodyReceived: " << amountofBodyReceived << " theContentLength: " << theContentLength << endl;
-      }
-
-      //Now fileBeginning contains one header and all the body
-      //And totalLength is the length of the first received header + all received body
-      //*(fileBeginning + totalLength++) = '\0';
-      handlePostRequest(fileBeginning, totalLength);
-      delete fileBeginning;
-      delete body;
-
+      handlePostRequest(completeHeader, aLength + addLength);
+      delete addData;
+      delete completeHeader;
     }
     done = true;
   }
@@ -114,26 +81,53 @@ void HTTPServer::handlePostRequest(char* theData, udword theLength) {
   //POST request should only be possible for ''/private/private.htm'. If that is
   //the case, decode the file content with decodeForm, add a '\0', and write the
   //file to the file system. Lastly, send the appropriate response to the client.
+
   //cout << "Inside handlePostRequest" << endl;
-  cout << "THE DATA: " << endl;
-  cout << theData << endl;
   char* path = findPathName(theData);
   byte* responseData;
   char* initRespLine;
   char* headerContType;
   if (strncmp(path, (char*)"private", 7) == 0) { //Correct
-    char* body = moveToBody(theData);
-    cout << "Encoded body: " << body << endl;
-    char* decodedBody = decodeForm(body); //Decode, also adds a '\0'
-    cout << "Decoded body: " << decodedBody << endl;
+    udword theContentLength = contentLength(theData, theLength);
+    char* bodySoFar = moveToBody(aData);
+    cout << "bodySoFar is: " << endl;
+    cout << bodySoFar << endl;
+    udword totalBodyLength = theLength - ((udword)bodySoFar - (udword)theData); //Amount of body received so far
+    cout << "Total Body Length so far: " << totalBodyLength << endl;
+    char* allData = new char[theContentLength + 1]; //Create space for all the body data
+    memcpy(allData, bodySoFar, totalBodyLength); //Start by copying over the body that we have to allData
+    delete bodySoFar;
+
+    /** Now account for the fact that not all the body was sent in the
+    received segments so far. Might need to read more segments */
+    while (totalBodyLength < theContentLength) {
+      char* moreData = (char*) mySocket.Read(theLength);
+      memcpy(allData + totalBodyLength, moreData, theLength);
+      totalBodyLength += theLength;
+      delete moreData;
+    }
+
+    allData[theContentLength] = '\0';
+    char* decodedBody = decodeForm(allData);
+    cout << "decodedBody: " << endl;
+    cout << decodedBody << endl;
+    delete allData;
+
     if (FileSystem::instance().writeFile((byte*)decodedBody, strlen(decodedBody))) { //Write to dynamic.htm
       cout << "Writefile returned true" << endl;
       initRespLine = "HTTP/1.0 200 OK\r\n";
       headerContType = "Content-type: text/html\r\n\r\n";
       responseData = (byte*)  "<html><head><title>Accepted</title></head>\r\n"
                               "<body><h1>dynamic.htm successfully updated.</h1></body></html>";
+
+      /**
+      If it still doesn't work, try to send:
+      mySocket->Write((byte*)decodedBody, strlen(decodedBody));
+      return;
+      */
     } else {
       cout << "Something went wrong when writing to dynamic.htm" << endl;
+      //TODO: Should sent response with info that server ran into an error
     }
   } else { //Here if POST came with wrong path
     cout << "POST request came from wrong path" << endl;
@@ -142,6 +136,7 @@ void HTTPServer::handlePostRequest(char* theData, udword theLength) {
     responseData =  (byte*) "<html><head><title>What you playing at?</title></head>\r\n"
                             "<body><h1>405 Method Not Allowed</h1></body></html>";
   }
+
   cout << "Calling mysocket->Write" << endl;
   mySocket->Write((byte*)initRespLine, strlen(initRespLine));
   mySocket->Write((byte*)headerContType, strlen(headerContType));
@@ -235,6 +230,18 @@ char* HTTPServer::moveToBody(char* theData) {
   char* body = strstr(theData, "\r\n\r\n");
   body += 4;
   return body;
+  /**
+  bool headerDone = false;
+  char* line = strstr((char*)aData, "\r\n");
+  line += 2;
+  while (!headerDone){
+    line = (strstr((char*)line, "\r\n") + 2);
+    if(strncmp(line, line - 2, 2) == 0){
+      headerDone = true;
+    }
+  }
+  return line + 2;
+  */
 }
 
 /**
