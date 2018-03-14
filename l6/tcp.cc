@@ -138,6 +138,10 @@ TCPConnection::TCPConnection(IPAddress& theSourceAddress,
   queueLength = 0;
   firstSeq = 0;
   sentMaxSeq = 0;
+
+  //RSTFlag = false;
+  //finSent = false;
+  RSTFlagReceived = false;
 }
 
 TCPConnection::~TCPConnection()
@@ -148,6 +152,17 @@ TCPConnection::~TCPConnection()
   delete myTimer; //TODO: Might have to cancel timer first? EDIT: is done now
   delete windowSemaphore;
 }
+
+/*
+void TCPConnection::RSTFlagReceived() {
+  RSTFlag = true;
+  myTimer->cancel();
+  if (finSent) {
+    return;
+  }
+  mySocket->socketDataSent();
+}
+*/
 
 bool TCPConnection::tryConnection(IPAddress& theSourceAddress,
                              uword      theSourcePort,
@@ -319,6 +334,7 @@ void EstablishedState::NetClose(TCPConnection* theConnection) {
 void EstablishedState::AppClose(TCPConnection* theConnection) {
   //trace << "EstablishedState::Appclose received AppClose from TCPSocket" << endl;
   if (theConnection->RSTFlagReceived) {
+  //if (theConnection->RSTFlag) {
     theConnection->Kill();
     return;
   }
@@ -329,6 +345,7 @@ void EstablishedState::AppClose(TCPConnection* theConnection) {
   } else { //Lab 5 functionality
     theConnection->myState = FinWait1State::instance();
     theConnection->myTCPSender->sendFlags(0x11); //Send FIN ACK
+    //theConnection->finSent = true;
     theConnection->sendNext = theConnection->sendNext + 1; //https://community.apigee.com/articles/7970/tcp-states-explained.html
   }
 }
@@ -387,6 +404,7 @@ void EstablishedState::Send(TCPConnection* theConnection,
 
   while (theConnection->theOffset() != theConnection->queueLength) {
     if (theConnection->RSTFlagReceived == false) {
+    //if (theConnection->RSTFlag == false) {
       theConnection->myTCPSender->sendFromQueue();
     } else {
       theConnection->myTimer->cancel();
@@ -648,8 +666,10 @@ void TCPInPacket::decode() {
 
       if ((tcpHeader->flags & 0x04) == 0x04) { // Received RST flag
         //aConnection->Kill();
-        aConnection->RSTFlagReceived = true;
-        aConnection->mySocket->socketEof();
+        //aConnection->RSTFlagReceived();
+        cout << "Received reset flag" << endl;
+        //aConnection->RSTFlagReceived = true;
+        //aConnection->mySocket->socketEof();
         return;
       }
 
@@ -660,10 +680,15 @@ void TCPInPacket::decode() {
         aConnection->Acknowledge(myAcknowledgementNumber);
         aConnection->NetClose();
       } else if ((tcpHeader->flags & 0x10) == 0x10) { //Received ACK flag.
+        /**
         if (myAcknowledgementNumber == aConnection->sentUnAcked) {
           aConnection->Receive(mySequenceNumber, myData + TCP::tcpHeaderLength, myLength - TCP::tcpHeaderLength);
-        } else {
-          aConnection->Acknowledge(myAcknowledgementNumber);
+        }
+        */
+        aConnection->Acknowledge(myAcknowledgementNumber);
+        if (myLength > 20) {
+          //cout << "Received more than a header in ACK: " << myLength << endl;
+          aConnection->Receive(mySequenceNumber, myData + TCP::tcpHeaderLength, myLength - TCP::tcpHeaderLength);
         }
       }
     }

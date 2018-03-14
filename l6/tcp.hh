@@ -158,6 +158,10 @@ class TCPConnection
   udword theSendLength();
   //the number of byte to send in a single segment.
 
+  //void RSTFlagReceived();
+
+  //bool RSTFlag;
+  //bool finSent;
   bool RSTFlagReceived;
 
   udword myWindowSize; // contains the offered window size from each segment.

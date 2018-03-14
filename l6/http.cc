@@ -49,12 +49,15 @@ void HTTPServer::doit() {
   while ((!done)) {
     aData = (char*) mySocket->Read(aLength);
     if (strncmp(aData, "GET ", 4) == 0) {
+      //cout << "DETECTED GET REQUEST" << endl;
       handleGetRequest(aData, aLength);
     }
     if (strncmp(aData, "HEAD", 4) == 0) {
+      //cout << "DETECTED HEAD REQUEST" << endl;
       handleHeadRequest(aData, aLength);
     }
     if (strncmp(aData, "POST", 4) == 0) {
+      //cout << "DETECTED POST REQUEST" << endl;
       /**
       Here we have to account of the fact that not all POST data is received in
       a single segment, could be split over multiple segments. Use the provided
@@ -62,57 +65,78 @@ void HTTPServer::doit() {
       to keep track of how much is left. When it has all been received, call
       handlePostRequest, but until then, keep filling the receivebuffer.
       */
+
       char* fileBeginning = aData;
-
+      fileBeginning = strcat(fileBeginning, "\r\n\r\n");
       udword theContentLength = contentLength(aData, aLength);
-      char* body = moveToBody(aData);
-      udword amountofBodyReceived = strlen(body);
 
-      udowrd totalLength = aLength - amountofBodyReceived; //Total length just the length of header for now.
+      /**Noticed that the header is sent over two segments
+      udword moreHeaderLength = 0;
+      aData = (char*) mySocket->Read(moreHeaderLength);
+      cout << "Second segment: " << aData << endl;
+      //fileBeginning = strcat(fileBeginning, aData);
+      //char* body = moveToBody(aData);
+      */
+      char* body;
+      //udword amountofBodyReceived = strlen(body);
+      udword amountofBodyReceived = 0;
+      udword totalLength = aLength;
 
       while (amountofBodyReceived < theContentLength) {
+        cout << "Did not receive all of theContentLength" << endl;
         aData = (char*) mySocket->Read(aLength); //Read next segment
+        cout << "Second read: " << aData << endl;
+        cout << "Length of second read: " << aLength << endl;
         body = moveToBody(aData); //Pointer to body of the received segment
+        //cout << "After first segment, received body: " << body << endl;
         fileBeginning = strcat(fileBeginning, body); //Concatenate body to end of fileBeginning
-
-        amountofBodyReceived += strlen(body) //Update so we can exit while
+        amountofBodyReceived += strlen(body); //Update so we can exit while
+        totalLength += strlen(body);
+        cout << "amountofBodyReceived: " << amountofBodyReceived << " theContentLength: " << theContentLength << endl;
       }
+
       //Now fileBeginning contains one header and all the body
       //And totalLength is the length of the first received header + all received body
-      totalLength += amountofBodyReceived;
+      //*(fileBeginning + totalLength++) = '\0';
       handlePostRequest(fileBeginning, totalLength);
       delete fileBeginning;
       delete body;
+
     }
     done = true;
   }
   delete aData;
-  //cout << "HTTPServer is quitting" << endl;
   mySocket->Close();
+  //cout << "HTTPServer is quitting" << endl;
 }
 
 void HTTPServer::handlePostRequest(char* theData, udword theLength) {
-  /**
-  POST request should only be possible for ''/private/private.htm'. If that is
-  the case, decode the file content with decodeForm, add a '\0', and write the
-  file to the file system. Lastly, send the appropriate response to the client.
-  */
+  //POST request should only be possible for ''/private/private.htm'. If that is
+  //the case, decode the file content with decodeForm, add a '\0', and write the
+  //file to the file system. Lastly, send the appropriate response to the client.
+  //cout << "Inside handlePostRequest" << endl;
+  cout << "THE DATA: " << endl;
+  cout << theData << endl;
   char* path = findPathName(theData);
   byte* responseData;
   char* initRespLine;
   char* headerContType;
-
   if (strncmp(path, (char*)"private", 7) == 0) { //Correct
-    char* decodedBody = decodeForm(moveToBody(theData)); //Decode, also adds a '\0'
+    char* body = moveToBody(theData);
+    cout << "Encoded body: " << body << endl;
+    char* decodedBody = decodeForm(body); //Decode, also adds a '\0'
+    cout << "Decoded body: " << decodedBody << endl;
     if (FileSystem::instance().writeFile((byte*)decodedBody, strlen(decodedBody))) { //Write to dynamic.htm
+      cout << "Writefile returned true" << endl;
       initRespLine = "HTTP/1.0 200 OK\r\n";
       headerContType = "Content-type: text/html\r\n\r\n";
       responseData = (byte*)  "<html><head><title>Accepted</title></head>\r\n"
                               "<body><h1>dynamic.htm successfully updated.</h1></body></html>";
     } else {
-      cout << "Something went wrong when writing to dynamic.htm";
+      cout << "Something went wrong when writing to dynamic.htm" << endl;
     }
   } else { //Here if POST came with wrong path
+    cout << "POST request came from wrong path" << endl;
     initRespLine = "HTTP/1.0 405 Method Not Allowed\r\n";
     headerContType = "Content-Type: text/html\r\n\r\n";
     responseData =  (byte*) "<html><head><title>What you playing at?</title></head>\r\n"
@@ -121,7 +145,7 @@ void HTTPServer::handlePostRequest(char* theData, udword theLength) {
   cout << "Calling mysocket->Write" << endl;
   mySocket->Write((byte*)initRespLine, strlen(initRespLine));
   mySocket->Write((byte*)headerContType, strlen(headerContType));
-  mySocket->Write(responseData, fileLength);
+  //mySocket->Write(responseData, strlen((char*)responseData));
 
   delete path;
   delete responseData;
@@ -130,15 +154,8 @@ void HTTPServer::handlePostRequest(char* theData, udword theLength) {
 }
 
 void HTTPServer::handleGetRequest(char* theData, udword theLength) {
-  /**
-  Need to consider the following:
-  An absolute path in the file system must be separated into the path and the
-  file name. Fetch the correct file. If file not found, return 404.
-  If file found, check for authentication - a path that contains /private.
-  Depending on successful auth send the file or send a auth fail. If no auth
-  required, send the found file.
-  If file is to be sent, make sure necessary headers are included.
-  */
+  bool shouldSendData = true;
+
   char* path = findPathName(theData);
   udword fileLength;
   byte* responseData;
@@ -150,6 +167,7 @@ void HTTPServer::handleGetRequest(char* theData, udword theLength) {
     responseData = FileSystem::instance().readFile(path, fileName, fileLength);
     initRespLine = "HTTP/1.0 200 OK\r\n";
     headerContType = "Content-Type: text/html\r\n\r\n";
+    //cout << "Sending: index.htm" << endl;
     delete fileName;
 
   } else { //A absolute path was found
@@ -168,6 +186,9 @@ void HTTPServer::handleGetRequest(char* theData, udword theLength) {
     initRespLine = "HTTP/1.0 200 OK\r\n";
     headerContType = contentTypeFromFileName(fileName);
     //cout << "Header: " << headerContType << endl;
+
+    //cout << "Sending: " << fileName << endl;
+
     delete first;
     delete last;
     delete pathAndFile;
@@ -176,35 +197,39 @@ void HTTPServer::handleGetRequest(char* theData, udword theLength) {
 
   //Checks go here
   if (responseData == 0) { //check if file was not found
-    //cout << "File not found, returning 404 error response" << endl;
+    cout << "File not found, returning 404 error response" << endl;
     initRespLine = "HTTP/1.0 404 Not found\r\n";
     headerContType = "Content-type: text/html\r\n\r\n";
-    responseData =  (byte*) "<html><head><title>File not found</title></head>\r\n"
-                            "<body><h1>404 Not found</h1></body></html>";
+    shouldSendData = false;
+    //responseData = (byte*)  "<html><head><title>File not found</title></head>\r\n"
+    //                        "<body><h1>404 Not found</h1></body></html>";
   } else {
     if (strncmp(path, "private", 7) == 0) { //check if authentication required i.e. path contains private
-      //cout << "Inside authentication check" << endl;
+      cout << "Inside authentication check" << endl;
       if (!authSuccessful(theData)) { //check if authentication failed
-        //cout << "Authentication failed - sending 401 error" << endl;
+        cout << "Authentication failed - sending 401 error" << endl;
         initRespLine = "HTTP/1.0 401 Unauthorized\r\n";
         headerContType =  "Content-type: text/html\r\n"
                           "WWW-Authenticate: Basic realm=""private""\r\n\r\n";
-        responseData = (byte*)  "<html><head><title>401 Unauthorized</title></head>\r\n"
-                                "<body><h1>401 Unauthorized</h1></body></html>";
+        shouldSendData = false;
+        //responseData = (byte*)  "<html><head><title>401 Unauthorized</title></head>\r\n"
+        //                        "<body><h1>401 Unauthorized</h1></body></html>";
       }
     }
   }
 
-  cout << "Calling mysocket->Write" << endl;
   mySocket->Write((byte*)initRespLine, strlen(initRespLine));
   mySocket->Write((byte*)headerContType, strlen(headerContType));
-  mySocket->Write(responseData, fileLength);
+  if (shouldSendData) {
+    mySocket->Write(responseData, fileLength);
+  }
 
   delete path;
   delete responseData;
   delete initRespLine;
   delete headerContType;
 }
+
 
 char* HTTPServer::moveToBody(char* theData) {
   char* body = strstr(theData, "\r\n\r\n");
@@ -220,7 +245,7 @@ Compare the string with a few invented users with passwords stored in the
 class HTTPServer and decide whether the resource should be sent.
 */
 bool HTTPServer::authSuccessful(char* theData) {
-  cout << "In authSuccessful method" << endl;
+  //cout << "In authSuccessful method" << endl;
   char* toCompare = "Authorization:";
   char* authHeadLine = strstr(theData, toCompare); //Pointer to first occurence of toCompare
   if (authHeadLine == NULL) { //Request did not include login details
@@ -451,6 +476,7 @@ char* HTTPServer::decodeForm(char* theEncodedForm) {
 Exactly like handleGetRequest, but never send the actual resource. Return only
 status line and headers.
 */
+
 void HTTPServer::handleHeadRequest(char* theData, udword theLength) {
   char* path = findPathName(theData);
   udword fileLength;

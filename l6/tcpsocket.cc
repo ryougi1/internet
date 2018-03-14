@@ -50,6 +50,7 @@ Semaphore blocks read until data is available. The method socketDataReceived is
 invoked in EstablishedState::Receive, which releases semaphore.
 */
 byte* TCPSocket::Read(udword& theLength) {
+  //cout << "Socket waiting for data to read" << endl;
   myReadSemaphore->wait(); // Wait for available data
   theLength = myReadLength;
   byte* aData = myReadData;
@@ -65,7 +66,8 @@ bool TCPSocket::isEof(){
 // Semaphore blocks write until data is transmitted AND acked.
 void TCPSocket::Write(byte* theData, udword theLength) {
   //cout << "Inside TCPSocket::Write" << endl;
-  if (myConnection->RSTFlag) {
+  if (myConnection->RSTFlagReceived) {
+    cout << "NOT WRITING BECAUSE OF RSTFLAG" << endl;
     return;
   }
   myConnection->Send(theData, theLength);
