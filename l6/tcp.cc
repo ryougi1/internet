@@ -139,8 +139,6 @@ TCPConnection::TCPConnection(IPAddress& theSourceAddress,
   firstSeq = 0;
   sentMaxSeq = 0;
 
-  //RSTFlag = false;
-  //finSent = false;
   RSTFlagReceived = false;
 }
 
@@ -152,17 +150,6 @@ TCPConnection::~TCPConnection()
   delete myTimer; //TODO: Might have to cancel timer first? EDIT: is done now
   delete windowSemaphore;
 }
-
-/*
-void TCPConnection::RSTFlagReceived() {
-  RSTFlag = true;
-  myTimer->cancel();
-  if (finSent) {
-    return;
-  }
-  mySocket->socketDataSent();
-}
-*/
 
 bool TCPConnection::tryConnection(IPAddress& theSourceAddress,
                              uword      theSourcePort,
@@ -345,7 +332,6 @@ void EstablishedState::AppClose(TCPConnection* theConnection) {
   } else { //Lab 5 functionality
     theConnection->myState = FinWait1State::instance();
     theConnection->myTCPSender->sendFlags(0x11); //Send FIN ACK
-    //theConnection->finSent = true;
     theConnection->sendNext = theConnection->sendNext + 1; //https://community.apigee.com/articles/7970/tcp-states-explained.html
   }
 }
@@ -668,8 +654,8 @@ void TCPInPacket::decode() {
         //aConnection->Kill();
         //aConnection->RSTFlagReceived();
         cout << "Received reset flag" << endl;
-        //aConnection->RSTFlagReceived = true;
-        //aConnection->mySocket->socketEof();
+        aConnection->RSTFlagReceived = true;
+        aConnection->mySocket->socketEof();
         return;
       }
 

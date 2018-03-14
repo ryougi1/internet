@@ -85,7 +85,6 @@ class TCPSocket
 
   bool  eofFound;
   // Connection has been closed by the remote host
-  bool RSTFlag;
 };
 
 /*****************************************************************************

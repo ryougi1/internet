@@ -33,8 +33,7 @@ TCPSocket::TCPSocket(TCPConnection* theConnection) :
   myConnection(theConnection),
   myReadSemaphore(Semaphore::createQueueSemaphore("readSemaphore", 0)),
   myWriteSemaphore(Semaphore::createQueueSemaphore("writeSemaphore", 0)),
-  eofFound(false),
-  RSTFlag(false)
+  eofFound(false)
 {
 }
 

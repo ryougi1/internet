@@ -46,7 +46,7 @@ void HTTPServer::doit() {
   char* aData;
   bool done = false;
   //cout << "Before WHILE: " << done << " : " << mySocket->isEof() << endl;
-  while ((!done)) {
+  while (!done && !mySocket->isEof()) {
     aData = (char*) mySocket->Read(aLength);
     if (strncmp(aData, "GET ", 4) == 0) {
       //cout << "DETECTED GET REQUEST" << endl;
@@ -61,7 +61,7 @@ void HTTPServer::doit() {
 
       /**The header is sent over two segments*/
       udword addLength = 0;
-      char* addData = (char*) mySocket->Read(addData);
+      char* addData = (char*) mySocket->Read(addLength);
       char* completeHeader = new char[aLength + addLength];
       memcpy(completeHeader, aData, aLength);
       memcpy(completeHeader + aLength, addData, addLength);
@@ -89,11 +89,12 @@ void HTTPServer::handlePostRequest(char* theData, udword theLength) {
   char* headerContType;
   if (strncmp(path, (char*)"private", 7) == 0) { //Correct
     udword theContentLength = contentLength(theData, theLength);
-    char* bodySoFar = moveToBody(aData);
-    cout << "bodySoFar is: " << endl;
-    cout << bodySoFar << endl;
+    char* bodySoFar = moveToBody(theData);
+    //cout << "bodySoFar is: " << endl;
+    //cout << bodySoFar << endl;
     udword totalBodyLength = theLength - ((udword)bodySoFar - (udword)theData); //Amount of body received so far
-    cout << "Total Body Length so far: " << totalBodyLength << endl;
+    //cout << "Total Body Length so far: " << totalBodyLength << endl;
+    //cout << "The content length is: " << theContentLength << endl;
     char* allData = new char[theContentLength + 1]; //Create space for all the body data
     memcpy(allData, bodySoFar, totalBodyLength); //Start by copying over the body that we have to allData
     delete bodySoFar;
@@ -101,7 +102,7 @@ void HTTPServer::handlePostRequest(char* theData, udword theLength) {
     /** Now account for the fact that not all the body was sent in the
     received segments so far. Might need to read more segments */
     while (totalBodyLength < theContentLength) {
-      char* moreData = (char*) mySocket.Read(theLength);
+      char* moreData = (char*) mySocket->Read(theLength);
       memcpy(allData + totalBodyLength, moreData, theLength);
       totalBodyLength += theLength;
       delete moreData;
@@ -109,38 +110,30 @@ void HTTPServer::handlePostRequest(char* theData, udword theLength) {
 
     allData[theContentLength] = '\0';
     char* decodedBody = decodeForm(allData);
-    cout << "decodedBody: " << endl;
-    cout << decodedBody << endl;
+    //cout << "decodedBody: " << endl;
+    //cout << decodedBody << endl;
     delete allData;
 
     if (FileSystem::instance().writeFile((byte*)decodedBody, strlen(decodedBody))) { //Write to dynamic.htm
-      cout << "Writefile returned true" << endl;
+      //cout << "Writefile returned true" << endl;
       initRespLine = "HTTP/1.0 200 OK\r\n";
       headerContType = "Content-type: text/html\r\n\r\n";
       responseData = (byte*)  "<html><head><title>Accepted</title></head>\r\n"
                               "<body><h1>dynamic.htm successfully updated.</h1></body></html>";
-
-      /**
-      If it still doesn't work, try to send:
-      mySocket->Write((byte*)decodedBody, strlen(decodedBody));
-      return;
-      */
     } else {
       cout << "Something went wrong when writing to dynamic.htm" << endl;
       //TODO: Should sent response with info that server ran into an error
     }
   } else { //Here if POST came with wrong path
-    cout << "POST request came from wrong path" << endl;
+    //cout << "POST request came from wrong path" << endl;
     initRespLine = "HTTP/1.0 405 Method Not Allowed\r\n";
     headerContType = "Content-Type: text/html\r\n\r\n";
     responseData =  (byte*) "<html><head><title>What you playing at?</title></head>\r\n"
                             "<body><h1>405 Method Not Allowed</h1></body></html>";
   }
-
-  cout << "Calling mysocket->Write" << endl;
   mySocket->Write((byte*)initRespLine, strlen(initRespLine));
   mySocket->Write((byte*)headerContType, strlen(headerContType));
-  //mySocket->Write(responseData, strlen((char*)responseData));
+  mySocket->Write(responseData, strlen((char*)responseData));
 
   delete path;
   delete responseData;
@@ -192,23 +185,22 @@ void HTTPServer::handleGetRequest(char* theData, udword theLength) {
 
   //Checks go here
   if (responseData == 0) { //check if file was not found
-    cout << "File not found, returning 404 error response" << endl;
+    //cout << "File not found, returning 404 error response" << endl;
     initRespLine = "HTTP/1.0 404 Not found\r\n";
     headerContType = "Content-type: text/html\r\n\r\n";
     shouldSendData = false;
-    //responseData = (byte*)  "<html><head><title>File not found</title></head>\r\n"
-    //                        "<body><h1>404 Not found</h1></body></html>";
+    responseData = (byte*)  "<html><head><title>File not found</title></head>\r\n"
+                            "<body><h1>404 Not found</h1></body></html>";
   } else {
     if (strncmp(path, "private", 7) == 0) { //check if authentication required i.e. path contains private
-      cout << "Inside authentication check" << endl;
       if (!authSuccessful(theData)) { //check if authentication failed
-        cout << "Authentication failed - sending 401 error" << endl;
+        //cout << "Authentication failed - sending 401 error" << endl;
         initRespLine = "HTTP/1.0 401 Unauthorized\r\n";
         headerContType =  "Content-type: text/html\r\n"
                           "WWW-Authenticate: Basic realm=""private""\r\n\r\n";
         shouldSendData = false;
-        //responseData = (byte*)  "<html><head><title>401 Unauthorized</title></head>\r\n"
-        //                        "<body><h1>401 Unauthorized</h1></body></html>";
+        responseData = (byte*)  "<html><head><title>401 Unauthorized</title></head>\r\n"
+                                "<body><h1>401 Unauthorized</h1></body></html>";
       }
     }
   }
@@ -217,6 +209,8 @@ void HTTPServer::handleGetRequest(char* theData, udword theLength) {
   mySocket->Write((byte*)headerContType, strlen(headerContType));
   if (shouldSendData) {
     mySocket->Write(responseData, fileLength);
+  } else {
+    mySocket->Write(responseData, strlen((char*)responseData));
   }
 
   delete path;
@@ -230,18 +224,6 @@ char* HTTPServer::moveToBody(char* theData) {
   char* body = strstr(theData, "\r\n\r\n");
   body += 4;
   return body;
-  /**
-  bool headerDone = false;
-  char* line = strstr((char*)aData, "\r\n");
-  line += 2;
-  while (!headerDone){
-    line = (strstr((char*)line, "\r\n") + 2);
-    if(strncmp(line, line - 2, 2) == 0){
-      headerDone = true;
-    }
-  }
-  return line + 2;
-  */
 }
 
 /**
@@ -371,13 +353,13 @@ udword HTTPServer::contentLength(char* theData, udword theLength) {
   {
     return 0;
   }
-  trace << "Found Content-Length!" << endl;
+  //trace << "Found Content-Length!" << endl;
   index += strlen(aSearchString) - 1;
   char* lenStart = theData + index;
   char* lenEnd = strchr(theData + index, '\r');
   char* lenString = this->extractString(lenStart, lenEnd - lenStart);
   udword contLen = atoi(lenString);
-  trace << "lenString: " << lenString << " is len: " << contLen << endl;
+  //trace << "lenString: " << lenString << " is len: " << contLen << endl;
   delete [] lenString;
   return contLen;
 }
@@ -536,7 +518,6 @@ void HTTPServer::handleHeadRequest(char* theData, udword theLength) {
       }
     }
   }
-  cout << "Calling mysocket->Write" << endl;
   mySocket->Write((byte*)initRespLine, strlen(initRespLine));
   mySocket->Write((byte*)headerContType, strlen(headerContType));
 
